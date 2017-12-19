@@ -3,26 +3,26 @@ project(raycast)
 
 # compiler flags
 set(CMAKE_CXX_STANDARD 11)
-set(CMAKE_CXX_FLAGS "-W -Wall -Wno-unused-parameter -Werror")
-
+set(CMAKE_CXX_FLAGS "-W -Wall -Wno-unused-parameter")
 
 # find packages
 find_package(PkgConfig REQUIRED)
-
 pkg_check_modules(GLM REQUIRED glm)
-
-# libraries
-#set(ALL_LIBS )
 
 # set source files
 set(SOURCE_FILES
         main.cpp
         sources/Sphere.cpp
-        sources/Ray.cpp)
+        sources/Ray.cpp
+        sources/Projector.cpp
+        sources/Hitpoint.cpp)
 
+# set header files
 set(HEADER_FILES
-        include/Sphere.h
-        include/Ray.h)
+        include/Sphere.hpp
+        include/Ray.hpp
+        include/Projector.hpp
+        include/Hitpoint.hpp)
 
 # specify executable
 add_executable(raycast ${SOURCE_FILES} ${HEADER_FILES})
