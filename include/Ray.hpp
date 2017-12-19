@@ -10,18 +10,10 @@
 struct Ray {
 
     Ray();
-    Ray(glm::vec3, glm::vec3);
-    Ray(Ray const &);
-
     Ray(const glm::vec3 &origin);
-
     Ray(const glm::vec3 &origin, const glm::vec3 &direction);
-
-    Ray();
-
+    Ray(const Ray& ray);
     ~Ray();
-
-    virtual ~Ray();
 
     // members
     glm::vec3 origin;
