@@ -14,14 +14,12 @@ set(SOURCE_FILES
         main.cpp
         sources/Sphere.cpp
         sources/Ray.cpp
-        sources/Projector.cpp
         sources/Hitpoint.cpp)
 
 # set header files
 set(HEADER_FILES
         include/Sphere.hpp
         include/Ray.hpp
-        include/Projector.hpp
         include/Hitpoint.hpp)
 
 # specify executable
