@@ -1,13 +1,26 @@
+// include std headers
 #include <iostream>
 #include <vector>
 #include <cmath>
+#include <fstream>
 
+// Include GLEW
+#include <GL/glew.h>
+
+// Include GLFW
+#include <GLFW/glfw3.h>
+
+// Include GLM
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
 
 #include "Sphere.hpp"
+#include "ShaderUtil.hpp"
+#include "Utility.hpp"
 
+// gl globals
+GLFWwindow *window;
 
 int SAMPLE_RINGS = 10;
 int SAMPLE_RING_POINTS = 36;
@@ -46,36 +59,6 @@ void calculateFrustumCorners(std::vector<glm::vec3> *corners, glm::mat4 projecti
         corners->push_back(glm::vec3(hcorners[i]));
     }
 }
-
-
-/**
- * returns printable string of a glm::vec3
- * @param vec
- * @return printable glm::vec3 string
- */
-std::string vecstr(glm::vec3 vec) {
-    return "[" + std::to_string(vec.x) + "," + std::to_string(vec.y) + "," + std::to_string(vec.z) + "]";
-}
-
-
-/**
- * deg to rad
- * @param deg
- * @return
- */
-double d2r(float deg) {
-    return deg * M_PI / 180.0f;
-}
-
-/**
- * rad to deg
- * @param rad
- * @return
- */
-double r2d(float rad) {
-    return rad * 180.0f / M_PI;
-}
-
 
 
 
@@ -124,22 +107,9 @@ std::vector<glm::vec3> generateRadialGrid(Axis axis, std::vector<glm::vec3> frus
 }
 
 
-/**
- * calc the angle between two vectors
- * @param a
- * @param b
- * @return
- */
-float angle(glm::vec3 a, glm::vec3 b) {
-    return acos(glm::dot(a,b) / (glm::length(a) * glm::length(b)));
-}
 
 
-/**
- * main function
- * @return
- */
-int main() {
+int foo() {
 
     std::cout << "Raycast" << std::endl;
 
@@ -161,17 +131,169 @@ int main() {
     std::vector<glm::vec3> frustum_corners;
     calculateFrustumCorners(&frustum_corners, projection);
     for (unsigned int i = 0; i < frustum_corners.size(); ++i) {
-        std::cout << vecstr(frustum_corners[i]) << std::endl;
+        std::cout << utility::vecstr(frustum_corners[i]) << std::endl;
     }
 
-    // genrate radial grid
+    // generate radial grid
     std::vector<glm::vec3> radial_grid = generateRadialGrid(X, frustum_corners);
     std::cout << "Radial grid points" << std::endl;
     for (unsigned int i = 0; i < radial_grid.size(); ++i) {
-        std::cout << vecstr(radial_grid[i]) << std::endl;
+        std::cout << utility::vecstr(radial_grid[i]) << std::endl;
     }
 
 
     return 0;
+}
+
+int initializeGLContext() {
+
+    // Initialise GLFW
+    if (!glfwInit()) {
+        fprintf(stderr, "Failed to initialize GLFW\n");
+        getchar();
+        return -1;
+    }
+
+    glfwWindowHint(GLFW_SAMPLES, 2);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); // To make MacOS happy; should not be needed
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
+
+    // get fullscreen resolution
+    const GLFWvidmode *mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
+    int width = mode->width;
+    int height = mode->height;
+
+    // Open a window and create its OpenGL context
+    window = glfwCreateWindow(1280, 800, "GLWarp", nullptr, nullptr);
+    if (window == nullptr) {
+        fprintf(stderr,
+                "Failed to open GLFW window.\n");
+        getchar();
+        glfwTerminate();
+        return -1;
+    }
+    glfwMakeContextCurrent(window);
+
+    // Initialize GLEW
+    glewExperimental = true;
+    if (glewInit() != GLEW_OK) {
+        fprintf(stderr, "Failed to initialize GLEW\n");
+        getchar();
+        glfwTerminate();
+        return -1;
+    }
+
+    // Ensure we can capture the escape key being pressed below
+    glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
+
+    // further settings
+    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LESS); // accept fragment if closer to camera than former one
+}
+
+void cleanupGL() {
+
+//    // Cleanup VBO
+//    glDeleteBuffers(1, &vertexbuffer_id);
+//    glDeleteBuffers(1, &uv_buffer_id);
+//    glDeleteProgram(program_id);
+//    glDeleteTextures(1, &texture);
+//    glDeleteVertexArrays(1, &vertex_array_id);
+
+}
+
+void draw() {
+        /**
+     * draw
+     */
+    bool running = true;
+    double last_time = glfwGetTime();
+    int num_frames = 0;
+    while (running && glfwWindowShouldClose(window) == 0) {
+
+
+        double current_time = glfwGetTime();
+        ++num_frames;
+        if (current_time - last_time >= 1.0) {
+            std::cout << "ms/frame: " << (1000.0 / double(num_frames)) << std::endl;
+            num_frames = 0;
+            last_time += 1.0;
+        }
+
+        // Clear the screen. It's not mentioned before Tutorial 02, but it can cause flickering, so it's there nonetheless.
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+//        // use shader
+//        glUseProgram(program_id);
+//
+//        // send transformation to current shader
+//        glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &mvp[0][0]);
+//
+//        // textureshit
+//        glActiveTexture(GL_TEXTURE0);
+//        glBindTexture(GL_TEXTURE_2D, texture);
+//        glUniform1i(texture_id, 0);
+//
+//        // vertex attribute buffer
+//        glEnableVertexAttribArray(0);
+//        glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer_id);
+//        glVertexAttribPointer(
+//                0,                  // attribute 0. No particular reason for 0, but must match the layout in the shader.
+//                3,                  // size
+//                GL_FLOAT,           // type
+//                GL_FALSE,           // normalized?
+//                0,                  // stride
+//                (void *) 0            // array buffer offset
+//        );
+//
+//        // UV attribute buffer
+//        glEnableVertexAttribArray(1);
+//        glBindBuffer(GL_ARRAY_BUFFER, uv_buffer_id);
+//        glVertexAttribPointer(
+//                1,                                // attribute. No particular reason for 1, but must match the layout in the shader.
+//                2,                                // size : U+V => 2
+//                GL_FLOAT,                         // type
+//                GL_FALSE,                         // normalized?
+//                0,                                // stride
+//                (void*)0                          // array buffer offset
+//        );
+//
+//        glDrawArrays(GL_TRIANGLES, 0, 12*3); // 3 indices starting at 0 -> 1 triangle
+//
+//        glDisableVertexAttribArray(0);
+//        glDisableVertexAttribArray(1);
+
+        // Swap buffers
+        glfwSwapBuffers(window);
+        glfwPollEvents();
+
+        // check for keyboard input
+        if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS ||
+            glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) {
+            running = false;
+        }
+    }
+}
+
+
+/**
+ * main function
+ * @return
+ */
+int main() {
+
+    initializeGLContext();
+
+    // furtehr setup shit
+
+    draw();
+
+    cleanupGL();
+    glfwTerminate();
+
 }
 
