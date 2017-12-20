@@ -51,14 +51,14 @@ Sphere::~Sphere() = default;
  * @param hp
  * @return
  */
-bool Sphere::intersect(Ray const &r, double &tmin, Hitpoint *hp) {
+bool Sphere::intersect(Ray const &r, float &tmin, Hitpoint *hp) {
 
-    double t;
+    float t;
     glm::vec3 temp = r.origin - _center;
-    double a = glm::dot(r.direction, r.direction);
-    double b = 2.0 * dot(temp, r.direction);
-    double c = dot(temp, temp) - _radius * _radius;
-    double disc = b * b - 4.0 * a * c;
+    float a = glm::dot(r.direction, r.direction);
+    float b = 2.0 * dot(temp, r.direction);
+    float c = dot(temp, temp) - _radius * _radius;
+    float disc = b * b - 4.0 * a * c;
 
     if (disc < 0.0)
         return (false);

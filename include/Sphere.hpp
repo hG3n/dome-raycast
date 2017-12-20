@@ -22,7 +22,7 @@ public:
     ~Sphere();
 
     // methods
-    bool intersect(Ray const &r, double &tmin, Hitpoint *hp);
+    bool intersect(Ray const &r, float &tmin, Hitpoint *hp);
 
     // getter
     float get_radius() const;
