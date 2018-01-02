@@ -17,7 +17,7 @@ namespace utility {
 
     double r2d(float rad);
 
-    float angle(glm::vec3 a, glm::vec3 b) {
+    float angle(glm::vec3 a, glm::vec3 b);
 }
 
 

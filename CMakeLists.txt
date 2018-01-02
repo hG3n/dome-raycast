@@ -28,7 +28,8 @@ set(SOURCE_FILES
         sources/Ray.cpp
         sources/Hitpoint.cpp
         sources/ShaderUtil.cpp
-        sources/Utility.cpp)
+        sources/Utility.cpp
+        sources/json11.cpp)
 
 # set header files
 set(HEADER_FILES
@@ -36,7 +37,8 @@ set(HEADER_FILES
         include/Ray.hpp
         include/Hitpoint.hpp
         include/ShaderUtil.hpp
-        include/Utility.hpp)
+        include/Utility.hpp
+        include/json11.hpp include/vertex_buffer_data.hpp)
 
 # libraries
 set(ALL_LIBS
