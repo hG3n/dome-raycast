@@ -13,11 +13,10 @@
 // Include GLM
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/quaternion.hpp>
 
 #include "Sphere.hpp"
 #include "ShaderUtil.hpp"
-#include "Utility.hpp"
+#include "DomeProjector.hpp"
 #include "vertex_buffer_data.hpp"
 
 // gl globals
@@ -27,6 +26,8 @@ float FOV = 90.0f;
 float NEAR_CLIPPING_PLANE = 0.1f;
 float FAR_CLIPPING_PLANE = 10.0f;
 
+bool SHOW_MOUSE = false;
+
 GLFWwindow *window;
 
 std::vector<GLuint> vertex_buffer_ids;
@@ -34,136 +35,55 @@ std::vector<GLuint> vertex_array_ids;
 std::vector<GLuint> shader_program_ids;
 
 std::map<std::string, GLuint> color_map;
-std::vector<glm::vec3> global_frustum_corners;
 
-// raycast globals
-int SAMPLE_RINGS = 4;
-int SAMPLE_RING_POINTS = 18;
+// drawable globals
+std::vector<glm::vec3> far_clipping_corners;
+std::vector<glm::vec3> near_clipping_corners;
+std::vector<glm::vec3> first_hitpoints;
+std::vector<glm::vec3> second_hitpoints;
+std::vector<glm::vec3> sample_grid;
+std::vector<glm::vec3> origin;
+std::vector<glm::vec3> dome_vertices;
 
-std::vector<glm::vec3> radial_grid_positions;
+// prepareRaycast globals
+int SAMPLE_RINGS = 36;
+int SAMPLE_RING_POINTS = 72;
 
-enum Axis {
-    X, Y, Z
-};
+GLuint createVertexBuffer(std::vector<GLfloat> const &vertex_data) {
 
-
-
-/**
- * calculate frustum corners according to the current projection matrix
- * @param corners
- * @param projection
- */
-void calculateFrustumCorners(std::vector<glm::vec3> *corners, glm::mat4 projection) {
-
-    glm::vec4 hcorners[8];
-
-    // near
-    hcorners[0] = glm::vec4(-1, 1, 1, 1);
-    hcorners[1] = glm::vec4(1, 1, 1, 1);
-    hcorners[2] = glm::vec4(1, -1, 1, 1);
-    hcorners[3] = glm::vec4(-1, -1, 1, 1);
-
-    // far
-    hcorners[4] = glm::vec4(-1, 1, -1, 1);
-    hcorners[5] = glm::vec4(1, 1, -1, 1);
-    hcorners[6] = glm::vec4(1, -1, -1, 1);
-    hcorners[7] = glm::vec4(-1, -1, -1, 1);
-
-    glm::mat4 inv_proj = glm::inverse(projection);
-
-    for (int i = 0; i < hcorners->length(); ++i) {
-        hcorners[i] = hcorners[i] * inv_proj;
-        hcorners[i] /= hcorners[i].w;
-
-        corners->push_back(glm::vec3(hcorners[i]));
+    // create clike array to passit to gl
+    GLfloat arr[vertex_data.size()];
+    for (int i = 0; i < vertex_data.size(); ++i) {
+        arr[i] = vertex_data[i];
     }
+
+    // generate buffer
+    GLuint vertexbuffer_id;
+    glGenBuffers(1, &vertexbuffer_id);
+    glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer_id);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(arr), arr, GL_STATIC_DRAW);
+
+    return vertexbuffer_id;
 }
 
+GLuint createSolidColorBuffer(int size, float r, float g, float b) {
 
-/**
- * generates a radial grid along given axis
- * @param axis
- * @return vector containing grid points
- */
-std::vector<glm::vec3> generateRadialGrid(Axis axis, std::vector<glm::vec3> frustum_corners) {
-
-    float step_size = 0;
-    switch (axis) {
-        case X:
-            step_size = ((frustum_corners[0].x - frustum_corners[1].x) / 2) / SAMPLE_RINGS;
-            break;
-        case Y:
-            step_size = ((frustum_corners[0].y - frustum_corners[2].y) / 2) / SAMPLE_RINGS;
-            break;
-        default:
-            std::cout << "default case activated" << std::endl;
-            break;
+    std::cout << size << std::endl;
+    GLfloat arr[size];
+    std::cout << size / 3 << std::endl;
+    for (int i = 0; i < size / 3; ++i) {
+        arr[i * 2] = r;
+        arr[i * 2 + 1] = g;
+        arr[i * 3 + 2] = b;
+        std::cout << r << " " << g << " " << b << std::endl;
     }
 
-    std::cout << "step size: " << step_size << std::endl;
+    GLuint colorbuffer_id;
+    glGenBuffers(1, &colorbuffer_id);
+    glBindBuffer(GL_ARRAY_BUFFER, colorbuffer_id);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(arr), arr, GL_STATIC_DRAW);
 
-    // define center point
-    glm::vec3 center_point = glm::vec3(frustum_corners[1].x + frustum_corners[0].x,
-                                       frustum_corners[0].y + frustum_corners[3].y,
-                                       0.0f);
-
-    float angle = 360.0f / SAMPLE_RING_POINTS;
-    std::cout << "partial angle: " << angle << std::endl;
-
-    std::vector<glm::vec3> vertices;
-    vertices.push_back(center_point);
-
-    for (int ring_idx = 1; ring_idx < SAMPLE_RINGS + 1; ++ring_idx) {
-        for (int ring_point_idx = 0; ring_point_idx < SAMPLE_RING_POINTS; ++ring_point_idx) {
-            glm::quat euler_quat(glm::vec3(0.0, 0.0, utility::d2r(angle * ring_point_idx)));
-            glm::vec3 coord = euler_quat * glm::vec3(ring_idx * step_size, 0.0, 0.0);
-
-            vertices.push_back(coord);
-        }
-    }
-
-    return vertices;
-}
-
-
-/**
- * raycast the shit out of the setup
- * @return
- */
-int raycast() {
-
-    std::cout << "Raycast" << std::endl;
-
-    // create mirror & dome
-    Sphere *mirror = new Sphere(0.8, glm::vec3(0.0, 0.5, 0.7));
-    Sphere *dome = new Sphere(1.6, glm::vec3(0.0, 1.4, 0.0));
-
-    // create projection matrix and calculate frustum corners
-    glm::mat4 projection = glm::perspective(glm::radians(FOV),
-                                            float(SCREEN_WIDTH) / float(SCREEN_HEIGHT),
-                                            NEAR_CLIPPING_PLANE,
-                                            FAR_CLIPPING_PLANE);
-    glm::mat4 view = glm::lookAt(
-            glm::vec3(0.0, 0.0, 1.0),  // camera pos world space
-            glm::vec3(0.0, 0.0, 0.0),  // lookat
-            glm::vec3(0.0, 1.0, 0.0)   // up vec
-    );
-
-    // calculate PV mat
-    glm::mat4 pv = projection * view;
-
-    // calculate frustum corners
-    std::vector<glm::vec3> frustum_corners;
-    calculateFrustumCorners(&frustum_corners, projection);
-
-    global_frustum_corners = frustum_corners;
-
-    // generate radial grid
-    std::vector<glm::vec3> radial_grid = generateRadialGrid(X, frustum_corners);
-
-    radial_grid_positions = radial_grid;
-
-    return 0;
+    return colorbuffer_id;
 }
 
 
@@ -185,7 +105,6 @@ int initializeGLContext() {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); // To make MacOS happy; should not be needed
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-
 
     // get fullscreen resolution
     const GLFWvidmode *mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
@@ -214,6 +133,10 @@ int initializeGLContext() {
 
     // ensure key input capturing is possible
     glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
+
+    // Hide the mouse and enable unlimited mouvement
+    if (!SHOW_MOUSE)
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     // further settings
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
@@ -302,7 +225,9 @@ void render(glm::mat4 mvp) {
         double current_time = glfwGetTime();
         ++num_frames;
         if (current_time - last_time >= 1.0) {
-            std::cout << "ms/frame: " << (1000.0 / double(num_frames)) << std::endl;
+            // this works better than expected
+            std::cout << "\r";
+            std::cout << "ms/frame: " << (1000.0 / double(num_frames));
             num_frames = 0;
             last_time += 1.0;
         }
@@ -312,20 +237,56 @@ void render(glm::mat4 mvp) {
         // use shader
         glUseProgram(shader_program_ids[0]);
 
+        /*
+         * keyboard input
+         */
         glm::mat4 current_mvp;
-        for (int i = 0; i < global_frustum_corners.size(); ++i) {
-            current_mvp = glm::translate(mvp, global_frustum_corners[i]);
-            current_mvp = glm::scale(current_mvp, glm::vec3(0.01, 0.01, 0.01));
-
-            drawVertexArray(matrix_id, vertex_array_ids[0], current_mvp, 2 * 3, color_map["red"]);
-
+        if (glfwGetKey(window, GLFW_KEY_A)) {
+            mvp = glm::rotate(mvp, glm::radians(1.0f), glm::vec3(0, 1, 0));
+        } else if (glfwGetKey(window, GLFW_KEY_D)) {
+            mvp = glm::rotate(mvp, glm::radians(-1.0f), glm::vec3(0, 1, 0));
         }
 
-        for (int i = 0; i < radial_grid_positions.size(); ++i) {
-            current_mvp = glm::translate(mvp, radial_grid_positions[i]);
+        for (auto element : sample_grid) {
+            current_mvp = glm::translate(mvp, element);
             current_mvp = glm::scale(current_mvp, glm::vec3(0.01, 0.01, 0.01));
+            drawVertexArray(matrix_id, vertex_array_ids[0], current_mvp, 2 * 3, color_map["blue"]);
+        }
 
+        for (auto element : first_hitpoints) {
+            current_mvp = glm::translate(mvp, element);
+            current_mvp = glm::scale(current_mvp, glm::vec3(0.01, 0.01, 0.01));
+            drawVertexArray(matrix_id, vertex_array_ids[0], current_mvp, 2 * 3, color_map["green"]);
+        }
+
+        for (auto element : second_hitpoints) {
+            current_mvp = glm::translate(mvp, element);
+            current_mvp = glm::scale(current_mvp, glm::vec3(0.01, 0.01, 0.01));
             drawVertexArray(matrix_id, vertex_array_ids[0], current_mvp, 2 * 3, color_map["red"]);
+        }
+
+        for (auto element: far_clipping_corners) {
+            current_mvp = glm::translate(mvp, element);
+            current_mvp = glm::scale(current_mvp, glm::vec3(0.01, 0.01, 0.01));
+            drawVertexArray(matrix_id, vertex_array_ids[0], current_mvp, 2 * 3, color_map["yellow"]);
+        }
+
+        for (auto element: near_clipping_corners) {
+            current_mvp = glm::translate(mvp, element);
+            current_mvp = glm::scale(current_mvp, glm::vec3(0.01, 0.01, 0.01));
+            drawVertexArray(matrix_id, vertex_array_ids[0], current_mvp, 2 * 3, color_map["yellow"]);
+        }
+
+        for (auto element: origin) {
+            current_mvp = glm::translate(mvp, element);
+            current_mvp = glm::scale(current_mvp, glm::vec3(0.01, 0.01, 0.01));
+            drawVertexArray(matrix_id, vertex_array_ids[0], current_mvp, 2 * 3, color_map["yellow"]);
+        }
+
+        for (auto element: dome_vertices) {
+            current_mvp = glm::translate(mvp, element);
+            current_mvp = glm::scale(current_mvp, glm::vec3(0.01, 0.01, 0.01));
+            drawVertexArray(matrix_id, vertex_array_ids[0], current_mvp, 2 * 3, color_map["white"]);
         }
 
         // Swap buffers
@@ -347,16 +308,76 @@ void render(glm::mat4 mvp) {
  */
 int main() {
 
-    raycast();
+    // create mirror & dome
+    Sphere *mirror = new Sphere(0.4, glm::vec3(0.0, 0.8, -1.7));
+    Sphere *dome = new Sphere(1.6, glm::vec3(0.0, 1.9, 0.0));
+//    Sphere *mirror = new Sphere(1.5, glm::vec3(0.0, 1.0, -3.5));
+//    Sphere *dome = new Sphere(1.0, glm::vec3(0.0, 1.0, 3.0));
+
+//    // create projector_projection matrix and calculate frustum corners
+    glm::mat4 projector_projection = glm::perspective(glm::radians(FOV),
+                                                      float(SCREEN_WIDTH) / float(SCREEN_HEIGHT),
+                                                      NEAR_CLIPPING_PLANE,
+                                                      FAR_CLIPPING_PLANE);
+//
+//
+//    // calculate initial ray direction
+//    glm::vec3 initial_direction = glm::vec3(0, 0, -1) - glm::vec3(0, 0, 0);
+//
+//    // build ray and define hitpoint
+//    Ray r(glm::vec3(0, 0, 0), glm::normalize(initial_direction));
+//    std::pair<Hitpoint, Hitpoint> hpp;
+//    std::cout << *mirror << std::endl;
+//    std::cout << *dome << std::endl;
+//    if (mirror->intersect(r, &hpp)) {
+//
+//        first_hitpoints.push_back(hpp.first.position);
+//        std::cout << "hit sphere at   " << utility::vecstr(hpp.first.position) << std::endl;
+//
+//        // reflect ray
+//        glm::vec3 ref = r.reflect(hpp.first.normal);
+//
+//        std::cout << "hitpoint normal " << utility::vecstr(hpp.first.normal) << std::endl;
+//        std::cout << "reflected ray   " << utility::vecstr(ref) << std::endl;
+//
+////        Ray r2(hpp.first.position, glm::normalize(glm::normalize(ref)) + hpp.first.position);
+//        Ray r2(hpp.first.position, glm::normalize(ref));
+//        std::cout << r2 << std::endl;
+//        std::pair<Hitpoint, Hitpoint> hpp2;
+//        if (dome->intersect(r2, &hpp2)) {
+//            std::cout << "fuckin hit at:" << utility::vecstr(hpp2.first.position) << std::endl;
+//            second_hitpoints.push_back(hpp2.first.position);
+//        }
+//
+//    }
+
+    // view mat
+    glm::vec3 projector_world_pos = glm::vec3(0.0, 0.9, 0.0);
+
+    // build the dome projector
+    Screen *screen = new Screen(SCREEN_WIDTH, SCREEN_HEIGHT);
+    Frustum *frustum = new Frustum(projector_projection, projector_world_pos, true);
+    DomeProjector *dp = new DomeProjector(frustum, screen, SAMPLE_RINGS, SAMPLE_RING_POINTS, projector_world_pos);
+
+    // raycast the shit out of the setup
+    dp->calculateDomeHitpoints(mirror, dome);
+    dp->calculateTransformationMesh();
+
+    std::cout << *dp << std::endl;
+
+    far_clipping_corners = frustum->_far_clipping_corners;
+    near_clipping_corners = frustum->_near_clipping_corners;
+    first_hitpoints = dp->get_first_hits();
+    second_hitpoints = dp->get_second_hits();
+    sample_grid = dp->get_sample_grid();
+    dome_vertices = dp->get_dome_vertices();
+
+    // cleanup
+//    delete dp;
+    delete mirror;
+    delete dome;
 
     initializeGLContext();
-
-    // create buffers
-    GLuint vertexbuffer_id;
-    glGenBuffers(1, &vertexbuffer_id);
-    glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer_id);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertex_buffer_data::quad), vertex_buffer_data::quad, GL_STATIC_DRAW);
-    vertex_buffer_ids.push_back(vertexbuffer_id);
 
     // generate vertex array
     GLuint vertex_array_id;
@@ -364,49 +385,78 @@ int main() {
     glBindVertexArray(vertex_array_id);
     vertex_array_ids.push_back(vertex_array_id);
 
-    static const GLfloat red_buffer[] = {
-            0.0, 1.0, 0.0,
-            0.0, 1.0, 0.0,
-            0.0, 1.0, 0.0,
-            0.0, 1.0, 0.0,
-            0.0, 1.0, 0.0,
-            0.0, 1.0, 0.0
-    };
-    GLuint colorbuffer;
-    glGenBuffers(1, &colorbuffer);
-    glBindBuffer(GL_ARRAY_BUFFER, colorbuffer);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(red_buffer), red_buffer, GL_STATIC_DRAW);
-    color_map["red"] = colorbuffer;
+    // create buffers
+    vertex_buffer_ids.push_back(createVertexBuffer(vertex_buffer_data::quad));
 
 
+    GLuint colorbuffer_blue;
+    glGenBuffers(1, &colorbuffer_blue);
+    glBindBuffer(GL_ARRAY_BUFFER, colorbuffer_blue);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertex_buffer_data::quat_blue), vertex_buffer_data::quat_blue, GL_STATIC_DRAW);
+    color_map["blue"] = colorbuffer_blue;
+
+    GLuint colorbuffer_green;
+    glGenBuffers(1, &colorbuffer_green);
+    glBindBuffer(GL_ARRAY_BUFFER, colorbuffer_green);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertex_buffer_data::quat_green), vertex_buffer_data::quat_green,
+                 GL_STATIC_DRAW);
+    color_map["green"] = colorbuffer_blue;
+
+    GLuint colorbuffer_red;
+    glGenBuffers(1, &colorbuffer_red);
+    glBindBuffer(GL_ARRAY_BUFFER, colorbuffer_red);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertex_buffer_data::quat_red), vertex_buffer_data::quat_red, GL_STATIC_DRAW);
+    color_map["red"] = colorbuffer_red;
+
+    GLuint colorbuffer_yellow;
+    glGenBuffers(1, &colorbuffer_yellow);
+    glBindBuffer(GL_ARRAY_BUFFER, colorbuffer_yellow);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertex_buffer_data::quat_yellow), vertex_buffer_data::quat_yellow,
+                 GL_STATIC_DRAW);
+    color_map["yellow"] = colorbuffer_yellow;
+
+    GLuint colorbuffer_white;
+    glGenBuffers(1, &colorbuffer_white);
+    glBindBuffer(GL_ARRAY_BUFFER, colorbuffer_white);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertex_buffer_data::quat_white), vertex_buffer_data::quat_white,
+                 GL_STATIC_DRAW);
+    color_map["white"] = colorbuffer_white;
+
+    color_map["grey"] = createSolidColorBuffer(vertex_buffer_data::quad.size(), 0.5, 0.5, 0.5);
 
     // load shaders
     GLuint program_id = LoadShaders("../shaders/simple.vert", "../shaders/simple.frag");
     shader_program_ids.push_back(program_id);
 
-
-
-    // build model view projection matrix
+    // build model view projector_projection matrix
     // Get a handle for our "MVP" uniform
     GLint matrix_id = glGetUniformLocation(program_id, "MVP");
 
-    // projection matrix
-    glm::mat4 projection = glm::perspective(glm::radians(FOV),                        // fov
-                                            float(SCREEN_WIDTH) / float(SCREEN_HEIGHT), // aspect ratio
-                                            NEAR_CLIPPING_PLANE,
-                                            FAR_CLIPPING_PLANE);
-    // camera matrix
-    glm::mat4 view = glm::lookAt(
-            glm::vec3(0.0f, 0.0f, 1.0f),  // camera position world space
-            glm::vec3(0.0f, 0.0f, 0.0f),  // lookat
-            glm::vec3(0.0f, 1.0f, 0.0f)   // upvec
-    );
+    origin.push_back(glm::vec3(0, 0, 0));
 
     // model
-    glm::mat4 model = glm::mat4(1.0f);
+    // create projector_projection matrix and calculate frustum corners
+    glm::mat4 camera_projection = glm::perspective(glm::radians(FOV),
+                                                   float(SCREEN_WIDTH) / float(SCREEN_HEIGHT),
+                                                   0.1f,
+                                                   100.0f);
+
+    // view mat
+//    glm::vec3 camera_world_pos = glm::vec3(0.0, 1.0, -2.5);
+//    glm::vec3 camera_lookat = glm::vec3(0.0, 1.0, 0.0);
+    glm::vec3 camera_world_pos = glm::vec3(0.0, 1.0, -3.5);
+    glm::vec3 camera_lookat = glm::vec3(0.0, 1.0, 0.0);
+    glm::mat4 camera_view = glm::lookAt(
+            camera_world_pos,           // camera pos world space
+            camera_lookat,              // lookat
+            glm::vec3(0.0, 1.0, 0.0)    // up vec
+    );
+
+    // model mat
+    glm::mat4 model(1.0f);
 
     // MVP
-    glm::mat4 mvp = projection * view * model;
+    glm::mat4 mvp = camera_projection * camera_view * model;
 
     // -----------------------
     // DRAW

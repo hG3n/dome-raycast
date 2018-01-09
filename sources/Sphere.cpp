@@ -1,7 +1,9 @@
 //
 // Created by Hagen Hiller on 18/12/17.
 //
+#include <iostream>
 #include <glm/glm.hpp>
+
 #include "Sphere.hpp"
 
 #define epsilon 0.000001f
@@ -13,8 +15,7 @@
  * default c'tor
  */
 Sphere::Sphere()
-        : _radius(1.0f)
-        , _center(glm::vec3()) {}
+        : _radius(1.0f), _center(glm::vec3()) {}
 
 
 /**
@@ -22,8 +23,7 @@ Sphere::Sphere()
  * @param radius
  */
 Sphere::Sphere(float radius)
-        : _radius(radius)
-        , _center(glm::vec3()) {}
+        : _radius(radius), _center(glm::vec3()) {}
 
 
 /**
@@ -32,8 +32,7 @@ Sphere::Sphere(float radius)
  * @param position
  */
 Sphere::Sphere(float radius, glm::vec3 position)
-        : _radius(radius)
-        , _center(position) {}
+        : _radius(radius), _center(position) {}
 
 
 /**
@@ -45,45 +44,67 @@ Sphere::~Sphere() = default;
 // METHODS
 
 /**
- * calculate intersection
+ * Validates, whether the given ray intersects the Sphere and retunts a pair of Hitpoints.
  * @param r
- * @param tmin
- * @param hp
- * @return
+ * @param hp_pair
+ * @return bool success
  */
-bool Sphere::intersect(Ray const &r, float &tmin, Hitpoint *hp) {
+bool Sphere::intersect(Ray const &r, std::pair<Hitpoint, Hitpoint> *hp_pair) {
 
-    float t;
-    glm::vec3 temp = r.origin - _center;
-    float a = glm::dot(r.direction, r.direction);
-    float b = 2.0 * dot(temp, r.direction);
-    float c = dot(temp, temp) - _radius * _radius;
-    float disc = b * b - 4.0 * a * c;
+    bool verbose = false;
 
-    if (disc < 0.0)
-        return (false);
-    else {
-        double e = std::sqrt(disc);
-        double denom = 2.0 * a;
-        t = (-b - e) / denom;   // smaller root
+    // vector from current ray orign to sphere center
+    glm::vec3 L = this->_center - r.origin;
 
-        if (t > epsilon) {
-            tmin = t;
-            hp->normal = glm::normalize((temp + t * r.direction) / _radius);
-            hp->position = r.origin + t * r.direction;
-            return true;
-        }
-        t = (-b + e) / denom; // larger root
+    // distance from ray origin to intersection with the spheres perpendicular vector
+    double t_ca = glm::dot(L, r.direction);
 
-        if (t > epsilon) {
-            tmin = t;
-            hp->normal = glm::normalize((temp + t * r.direction) / _radius);
-            hp->position = r.origin + t * r.direction;
-            return true;
-        }
+    // if t_ca is smaller than 0 the ray might be pointing in the wrong direction
+    if (t_ca < 0) {
+        if(verbose)
+            std::cout << "t_ca < 0" << std::endl;
+        return false;
     }
-    return false;
+
+    // calc vector length perpendicular to the ray through the spheres center
+    double d = sqrt(glm::dot(L, L) - pow(t_ca, 2));
+    if (d < 0 || d > this->_radius) {
+
+        if(verbose) {
+            if (d < 0)
+                std::cout << "d < 0" << std::endl;
+
+            if (d > this->_radius)
+                std::cout << "d > _radius" << std::endl;
+        }
+
+        return false;
+    }
+
+    // calculate the distance from the first hitpoint to d
+    double t_hc = sqrt(pow(this->_radius, 2) - pow(d, 2));
+
+    double t_0 = t_ca - t_hc;
+    double t_1 = t_ca + t_hc;
+
+    // help vector
+    glm::vec3 temp = r.origin - this->_center;
+
+    // first hitpoint
+    glm::vec3 P1 = r.origin + ((float) t_0 * r.direction);
+    glm::vec3 N1 = glm::normalize((temp + (float)t_0 * r.direction) / this->_radius);
+    hp_pair->first.position = P1;
+    hp_pair->first.normal = N1;
+
+    // second hitpoint
+    glm::vec3 P2 = r.origin + ((float) t_1 * r.direction);
+    glm::vec3 N2 = glm::normalize((temp + (float)t_1 * r.direction) / this->_radius);
+    hp_pair->second.position = P2;
+    hp_pair->second.normal = N2;
+
+    return true;
 }
+
 
 
 // -----------------------------------------------------------------------------------------

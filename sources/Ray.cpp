@@ -2,7 +2,12 @@
 // Created by Hagen Hiller on 18/12/17.
 //
 
-#include <Ray.hpp>
+#include <ostream>
+#include <string>
+#include <glm/glm.hpp>
+
+#include "Utility.hpp"
+#include "Ray.hpp"
 
 /**
  * default c'tor
@@ -41,3 +46,26 @@ Ray::Ray(const Ray &ray)
  * d'tor
  */
 Ray::~Ray() {}
+
+
+/**
+ * reflect ray along given normal
+ * @param normal
+ * @return
+ */
+glm::vec3 Ray::reflect(glm::vec3 const &normal) const {
+    return this->direction - 2.0f * (glm::dot(this->direction, glm::normalize(normal))) * glm::normalize(normal);
+}
+
+/**
+ * stream << output operator
+ * @param os
+ * @param ray
+ * @return
+ */
+std::ostream &operator<<(std::ostream &os, const Ray &ray) {
+    std::string origin_s = utility::vecstr(ray.origin);
+    std::string direction_s = utility::vecstr(ray.direction);
+    os << "origin: " << origin_s << " direction: " << direction_s;
+    return os;
+}

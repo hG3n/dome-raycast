@@ -46,3 +46,15 @@ float utility::angle(glm::vec3 a, glm::vec3 b) {
 
 
 
+/**
+ * maps a value to a certain range
+ * @param value
+ * @param in_min
+ * @param in_max
+ * @param out_min
+ * @param out_max
+ * @return
+ */
+float utility::mapToRange(float value, float in_min, float in_max, float out_min, float out_max) {
+    return (value - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}

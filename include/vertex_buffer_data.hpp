@@ -6,11 +6,13 @@
 #define RAYCAST_VERTEX_BUFFER_DATA_HPP
 
 #include <GL/glew.h>
+#include <vector>
 
 namespace vertex_buffer_data {
 
     // quad defintion
-    static const GLfloat quad[] = {
+
+    static const std::vector<GLfloat> quad{
             -1.0f, -1.0f, 0.0f,
             -1.0f, 1.0f, 0.0f,
             1.0f, 1.0f, 0.0f,
@@ -19,7 +21,50 @@ namespace vertex_buffer_data {
             1.0f, 1.0f, 0.0f,
     };
 
-    // cube definition
+    static const GLfloat quat_blue[]{
+            0.0f, 0.0f, 1.0f,
+            0.0f, 0.0f, 1.0f,
+            0.0f, 0.0f, 1.0f,
+            0.0f, 0.0f, 1.0f,
+            0.0f, 0.0f, 1.0f,
+            0.0f, 0.0f, 1.0f,
+    };
+
+    static const GLfloat quat_green[]{
+            0.0f, 1.0f, 0.0f,
+            0.0f, 1.0f, 0.0f,
+            0.0f, 1.0f, 0.0f,
+            0.0f, 1.0f, 0.0f,
+            0.0f, 1.0f, 0.0f,
+            0.0f, 1.0f, 0.0f,
+    };
+
+    static const GLfloat quat_red[]{
+            1.0f, 0.0f, 0.0f,
+            1.0f, 0.0f, 0.0f,
+            1.0f, 0.0f, 0.0f,
+            1.0f, 0.0f, 0.0f,
+            1.0f, 0.0f, 0.0f,
+            1.0f, 0.0f, 0.0f,
+    };
+
+    static const GLfloat quat_yellow[]{
+            1.0f, 1.0f, 0.0f,
+            1.0f, 1.0f, 0.0f,
+            1.0f, 1.0f, 0.0f,
+            1.0f, 1.0f, 0.0f,
+            1.0f, 1.0f, 0.0f,
+            1.0f, 1.0f, 0.0f,
+    };
+    static const GLfloat quat_white[]{
+            1.0f, 1.0f, 1.0f,
+            1.0f, 1.0f, 1.0f,
+            1.0f, 1.0f, 1.0f,
+            1.0f, 1.0f, 1.0f,
+            1.0f, 1.0f, 1.0f,
+            1.0f, 1.0f, 1.0f,
+    };
+// cube definition
     static const GLfloat cube[] = {
             -1.0f, -1.0f, -1.0f,
             -1.0f, -1.0f, 1.0f,
@@ -58,7 +103,6 @@ namespace vertex_buffer_data {
             -1.0f, 1.0f, 1.0f,
             1.0f, -1.0f, 1.0f
     };
-
 
 }
 
