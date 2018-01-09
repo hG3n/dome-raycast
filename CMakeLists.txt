@@ -29,7 +29,11 @@ set(SOURCE_FILES
         sources/Hitpoint.cpp
         sources/ShaderUtil.cpp
         sources/Utility.cpp
-        sources/json11.cpp)
+        sources/json11.cpp
+        sources/Shape.cpp
+        sources/Frustum.cpp
+        sources/DomeProjector.cpp
+        sources/ColorRGB.cpp)
 
 # set header files
 set(HEADER_FILES
@@ -38,7 +42,12 @@ set(HEADER_FILES
         include/Hitpoint.hpp
         include/ShaderUtil.hpp
         include/Utility.hpp
-        include/json11.hpp include/vertex_buffer_data.hpp)
+        include/json11.hpp
+        include/vertex_buffer_data.hpp
+        include/Shape.hpp
+        include/Frustum.hpp
+        include/DomeProjector.hpp
+        include/ColorRGB.hpp)
 
 # libraries
 set(ALL_LIBS

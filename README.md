@@ -1,3 +1,3 @@
 # dome-raycast
 
-simple raycast
+simple prepareRaycast
