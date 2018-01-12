@@ -64,6 +64,17 @@ namespace vertex_buffer_data {
             1.0f, 1.0f, 1.0f,
             1.0f, 1.0f, 1.0f,
     };
+
+
+    static const GLfloat quat_grey[]{
+            0.5f, 0.5f, 0.5f,
+            0.5f, 0.5f, 0.5f,
+            0.5f, 0.5f, 0.5f,
+            0.5f, 0.5f, 0.5f,
+            0.5f, 0.5f, 0.5f,
+            0.5f, 0.5f, 0.5f,
+    };
+
 // cube definition
     static const GLfloat cube[] = {
             -1.0f, -1.0f, -1.0f,
