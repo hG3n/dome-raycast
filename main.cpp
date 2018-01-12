@@ -45,13 +45,20 @@ std::vector<glm::vec3> sample_grid;
 std::vector<glm::vec3> origin;
 std::vector<glm::vec3> dome_vertices;
 
-// prepareRaycast globals
-int SAMPLE_RINGS = 36;
+// raycast globals
+int SAMPLE_RINGS = 72;
 int SAMPLE_RING_POINTS = 72;
+int DOME_RINGS = 18;
+int DOME_RING_ELEMENTS = 36;
 
+/**
+ * create a vertex buffer
+ * @param vertex_data
+ * @return
+ */
 GLuint createVertexBuffer(std::vector<GLfloat> const &vertex_data) {
 
-    // create clike array to passit to gl
+    // create clike array to pass it to gl
     GLfloat arr[vertex_data.size()];
     for (int i = 0; i < vertex_data.size(); ++i) {
         arr[i] = vertex_data[i];
@@ -66,6 +73,15 @@ GLuint createVertexBuffer(std::vector<GLfloat> const &vertex_data) {
     return vertexbuffer_id;
 }
 
+
+/**
+ * create a solid color gl buffer
+ * @param size
+ * @param r
+ * @param g
+ * @param b
+ * @return
+ */
 GLuint createSolidColorBuffer(int size, float r, float g, float b) {
 
     std::cout << size << std::endl;
@@ -286,7 +302,7 @@ void render(glm::mat4 mvp) {
         for (auto element: dome_vertices) {
             current_mvp = glm::translate(mvp, element);
             current_mvp = glm::scale(current_mvp, glm::vec3(0.01, 0.01, 0.01));
-            drawVertexArray(matrix_id, vertex_array_ids[0], current_mvp, 2 * 3, color_map["white"]);
+            drawVertexArray(matrix_id, vertex_array_ids[0], current_mvp, 2 * 3, color_map["grey"]);
         }
 
         // Swap buffers
@@ -298,6 +314,7 @@ void render(glm::mat4 mvp) {
             glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) {
             running = false;
         }
+
     }
 }
 
@@ -311,59 +328,31 @@ int main() {
     // create mirror & dome
     Sphere *mirror = new Sphere(0.4, glm::vec3(0.0, 0.8, -1.7));
     Sphere *dome = new Sphere(1.6, glm::vec3(0.0, 1.9, 0.0));
-//    Sphere *mirror = new Sphere(1.5, glm::vec3(0.0, 1.0, -3.5));
-//    Sphere *dome = new Sphere(1.0, glm::vec3(0.0, 1.0, 3.0));
 
 //    // create projector_projection matrix and calculate frustum corners
     glm::mat4 projector_projection = glm::perspective(glm::radians(FOV),
                                                       float(SCREEN_WIDTH) / float(SCREEN_HEIGHT),
                                                       NEAR_CLIPPING_PLANE,
                                                       FAR_CLIPPING_PLANE);
-//
-//
-//    // calculate initial ray direction
-//    glm::vec3 initial_direction = glm::vec3(0, 0, -1) - glm::vec3(0, 0, 0);
-//
-//    // build ray and define hitpoint
-//    Ray r(glm::vec3(0, 0, 0), glm::normalize(initial_direction));
-//    std::pair<Hitpoint, Hitpoint> hpp;
-//    std::cout << *mirror << std::endl;
-//    std::cout << *dome << std::endl;
-//    if (mirror->intersect(r, &hpp)) {
-//
-//        first_hitpoints.push_back(hpp.first.position);
-//        std::cout << "hit sphere at   " << utility::vecstr(hpp.first.position) << std::endl;
-//
-//        // reflect ray
-//        glm::vec3 ref = r.reflect(hpp.first.normal);
-//
-//        std::cout << "hitpoint normal " << utility::vecstr(hpp.first.normal) << std::endl;
-//        std::cout << "reflected ray   " << utility::vecstr(ref) << std::endl;
-//
-////        Ray r2(hpp.first.position, glm::normalize(glm::normalize(ref)) + hpp.first.position);
-//        Ray r2(hpp.first.position, glm::normalize(ref));
-//        std::cout << r2 << std::endl;
-//        std::pair<Hitpoint, Hitpoint> hpp2;
-//        if (dome->intersect(r2, &hpp2)) {
-//            std::cout << "fuckin hit at:" << utility::vecstr(hpp2.first.position) << std::endl;
-//            second_hitpoints.push_back(hpp2.first.position);
-//        }
-//
-//    }
 
     // view mat
-    glm::vec3 projector_world_pos = glm::vec3(0.0, 0.9, 0.0);
+    glm::vec3 projector_world_pos = glm::vec3(0.0, 0.95, 0.0);
 
     // build the dome projector
     Screen *screen = new Screen(SCREEN_WIDTH, SCREEN_HEIGHT);
     Frustum *frustum = new Frustum(projector_projection, projector_world_pos, true);
-    DomeProjector *dp = new DomeProjector(frustum, screen, SAMPLE_RINGS, SAMPLE_RING_POINTS, projector_world_pos);
+    DomeProjector *dp = new DomeProjector(frustum,
+                                          screen,
+                                          SAMPLE_RINGS,
+                                          SAMPLE_RING_POINTS,
+                                          projector_world_pos,
+                                          DOME_RINGS,
+                                          DOME_RING_ELEMENTS);
 
     // raycast the shit out of the setup
     dp->calculateDomeHitpoints(mirror, dome);
     dp->calculateTransformationMesh();
-
-    std::cout << *dp << std::endl;
+    dp->calculateTransformationMesh();
 
     far_clipping_corners = frustum->_far_clipping_corners;
     near_clipping_corners = frustum->_near_clipping_corners;
@@ -373,7 +362,7 @@ int main() {
     dome_vertices = dp->get_dome_vertices();
 
     // cleanup
-//    delete dp;
+    delete dp;
     delete mirror;
     delete dome;
 
@@ -388,7 +377,6 @@ int main() {
     // create buffers
     vertex_buffer_ids.push_back(createVertexBuffer(vertex_buffer_data::quad));
 
-
     GLuint colorbuffer_blue;
     glGenBuffers(1, &colorbuffer_blue);
     glBindBuffer(GL_ARRAY_BUFFER, colorbuffer_blue);
@@ -400,7 +388,7 @@ int main() {
     glBindBuffer(GL_ARRAY_BUFFER, colorbuffer_green);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertex_buffer_data::quat_green), vertex_buffer_data::quat_green,
                  GL_STATIC_DRAW);
-    color_map["green"] = colorbuffer_blue;
+    color_map["green"] = colorbuffer_green;
 
     GLuint colorbuffer_red;
     glGenBuffers(1, &colorbuffer_red);
@@ -422,7 +410,12 @@ int main() {
                  GL_STATIC_DRAW);
     color_map["white"] = colorbuffer_white;
 
-    color_map["grey"] = createSolidColorBuffer(vertex_buffer_data::quad.size(), 0.5, 0.5, 0.5);
+    GLuint colorbuffer_grey;
+    glGenBuffers(1, &colorbuffer_grey);
+    glBindBuffer(GL_ARRAY_BUFFER, colorbuffer_grey);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertex_buffer_data::quat_grey), vertex_buffer_data::quat_grey,
+                 GL_STATIC_DRAW);
+    color_map["grey"] = colorbuffer_grey;
 
     // load shaders
     GLuint program_id = LoadShaders("../shaders/simple.vert", "../shaders/simple.frag");
@@ -434,17 +427,13 @@ int main() {
 
     origin.push_back(glm::vec3(0, 0, 0));
 
-    // model
-    // create projector_projection matrix and calculate frustum corners
+    // create camera projection matrix
     glm::mat4 camera_projection = glm::perspective(glm::radians(FOV),
                                                    float(SCREEN_WIDTH) / float(SCREEN_HEIGHT),
                                                    0.1f,
                                                    100.0f);
 
-    // view mat
-//    glm::vec3 camera_world_pos = glm::vec3(0.0, 1.0, -2.5);
-//    glm::vec3 camera_lookat = glm::vec3(0.0, 1.0, 0.0);
-    glm::vec3 camera_world_pos = glm::vec3(0.0, 1.0, -3.5);
+    glm::vec3 camera_world_pos = glm::vec3(0.0, 1.8, -3.5);
     glm::vec3 camera_lookat = glm::vec3(0.0, 1.0, 0.0);
     glm::mat4 camera_view = glm::lookAt(
             camera_world_pos,           // camera pos world space
