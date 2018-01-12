@@ -2,7 +2,6 @@
 
 // Ouput data
 out vec4 color;
-//out vec3 color;
 
 // input color
 in vec3 fragment_color;
@@ -12,5 +11,4 @@ in vec3 fragment_color;
  */
 void main() {
     color = vec4(fragment_color, 1.0);
-//    color = fragment_color;
 }
