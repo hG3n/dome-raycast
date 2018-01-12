@@ -8,6 +8,7 @@
 
 #include <string>
 #include <glm/vec3.hpp>
+#include <vector>
 
 namespace utility {
 
@@ -20,6 +21,10 @@ namespace utility {
     float angle(glm::vec3 a, glm::vec3 b);
 
     float mapToRange(float value, float in_min, float in_max, float out_min, float out_max);
+
+    glm::vec3 findMinValues(std::vector<glm::vec3> vector);
+
+    glm::vec3 findMaxValues(std::vector<glm::vec3> vector);
 }
 
 #endif //RAYCAST_UTILITY_HPP
