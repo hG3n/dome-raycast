@@ -29,17 +29,29 @@ DomeProjector::DomeProjector(Frustum *_frustum,
                              Screen *_screen,
                              int _grid_rings,
                              int _grid_ring_elements,
-                             glm::vec3 const &position)
+                             glm::vec3 const &position,
+                             int dome_rings,
+                             int dome_ring_elements)
         : _frustum(_frustum)
         , _screen(_screen)
         , _grid_rings(_grid_rings)
         , _grid_ring_elements(_grid_ring_elements)
-        , _position(position) {
+        , _position(position)
+        , _dome_rings(dome_rings)
+        , _dome_ring_elements(dome_ring_elements) {
 
     this->generateRadialGrid();
     this->generateDomeVertices();
 
-    // translate sample grid to prosjector position
+    glm::mat4 scale_mat(1.0f);
+    scale_mat = glm::scale(scale_mat, glm::vec3(1.6f, 1.6f, 1.6f));
+
+    for (int j = 0; j < this->_dome_vertices.size(); ++j) {
+        glm::vec4 res = scale_mat * glm::vec4(this->_dome_vertices[j], 1.0f);
+        this->_dome_vertices[j] = glm::vec3(res);
+    }
+
+    // translate sample grid to projector position
     for (int i = 0; i < this->_sample_grid.size(); ++i) {
         this->_sample_grid[i] = this->_sample_grid[i] + position;
     }
@@ -64,8 +76,6 @@ std::vector<glm::vec3> DomeProjector::generateRadialGrid() const {
     float step_size = ((this->_frustum->_far_clipping_corners[0].x - this->_frustum->_far_clipping_corners[1].x) / 2) /
                       _grid_rings;
 
-    std::cout << "step size: " << step_size << std::endl;
-
     // define center point
     glm::vec3 center_point = glm::vec3(
             this->_frustum->_far_clipping_corners[1].x + this->_frustum->_far_clipping_corners[0].x,
@@ -73,7 +83,6 @@ std::vector<glm::vec3> DomeProjector::generateRadialGrid() const {
             this->_frustum->_far_clipping_corners[0].z);
 
     float angle = 360.0f / _grid_ring_elements;
-    std::cout << "partial angle: " << angle << std::endl;
 
     std::vector<glm::vec3> vertices;
     vertices.push_back(center_point);
@@ -84,7 +93,7 @@ std::vector<glm::vec3> DomeProjector::generateRadialGrid() const {
             glm::vec3 coord = euler_quat * glm::vec3(ring_idx * step_size, 0.0, 0.0);
 
             // push back the rotated point at the far clipping plaes z position
-            vertices.push_back(glm::vec3(coord.x, coord.y, this->_frustum->_far_clipping_corners[0].z));
+            vertices.emplace_back(glm::vec3(coord.x, coord.y, this->_frustum->_far_clipping_corners[0].z));
         }
     }
 
@@ -121,7 +130,7 @@ void DomeProjector::generateRadialGrid() {
             glm::vec3 coord = euler_quat * glm::vec3(ring_idx * step_size, 0.0, 0.0);
 
             // push back the rotated point at the far clipping plaes z position
-            this->_sample_grid.push_back(glm::vec3(coord.x, coord.y, this->_frustum->_far_clipping_corners[0].z));
+            this->_sample_grid.emplace_back(glm::vec3(coord.x, coord.y, this->_frustum->_far_clipping_corners[0].z));
         }
     }
 
@@ -132,23 +141,22 @@ void DomeProjector::generateRadialGrid() {
  * Generates the vertices of a half sphere by using the grid specified settings
  */
 void DomeProjector::generateDomeVertices() {
-
     /*
      * THETA - AROUND Y
      * PHI - X AND
      */
-    float delta_theta = 360.0f / (float) (this->_grid_ring_elements);
-    float delta_phi = 90.0f / (float) (this->_grid_ring_elements - 1);
+    float delta_theta = 360.0f / (float) (this->_dome_ring_elements);
+    float delta_phi = 90.0f / (float) (this->_dome_rings - 1);
 
     // define center point
     std::vector<glm::vec3> vertices;
     glm::vec3 pole_cap(0.0f, 1.0f, 0.0f);
     vertices.push_back(pole_cap);
 
-    for (int ring_idx = 0; ring_idx < this->_grid_rings; ++ring_idx) {
+    for (int ring_idx = 0; ring_idx < this->_dome_rings; ++ring_idx) {
         glm::quat phi_quat(glm::vec3(glm::radians(ring_idx * delta_phi), 0.0f, 0.0f));
         glm::vec3 vec = phi_quat * glm::vec3(pole_cap.x, pole_cap.y, pole_cap.z);
-        for (int segment_idx = 0; segment_idx < this->_grid_ring_elements; ++segment_idx) {
+        for (int segment_idx = 0; segment_idx < this->_dome_ring_elements; ++segment_idx) {
             glm::quat theta_quat(glm::vec3(0.0f, glm::radians(segment_idx * delta_theta), 0.0f));
             glm::vec3 final = theta_quat * vec;
             vertices.push_back(final);
@@ -156,7 +164,6 @@ void DomeProjector::generateDomeVertices() {
     }
 
     this->_dome_vertices = vertices;
-
 }
 
 
@@ -166,6 +173,10 @@ void DomeProjector::generateDomeVertices() {
  * @param dome
  */
 void DomeProjector::calculateDomeHitpoints(Sphere *mirror, Sphere *dome) {
+
+
+
+
 
     // translate dome vertices to the domes position
     for (int i = 0; i < this->_dome_vertices.size(); ++i) {
@@ -208,6 +219,85 @@ void DomeProjector::calculateDomeHitpoints(Sphere *mirror, Sphere *dome) {
  * @return std::vector<glm::vec3> transformation mesh
  */
 std::vector<glm::vec3> DomeProjector::calculateTransformationMesh() {
+
+
+    // create green list here
+    std::map<int, int> map;
+
+    float last_distance = std::numeric_limits<float>::max();
+    int last_hitpoint_idx = 0;
+
+    for (int vert_idx = 0; vert_idx < this->_dome_vertices.size(); vert_idx++) {
+        for (int hp_idx = 0; hp_idx < this->_second_hits.size(); ++hp_idx) {
+            float current_distance = glm::length(this->_second_hits[hp_idx] - this->_dome_vertices[vert_idx]);
+            if (current_distance < last_distance) {
+                last_distance = current_distance;
+                last_hitpoint_idx = hp_idx;
+            }
+        }
+        last_distance = std::numeric_limits<float>::max();
+        map.insert(std::pair<int, int>(vert_idx, last_hitpoint_idx));
+
+    }
+
+    // calculate mapping
+    std::vector<glm::vec3> screen_points;
+    std::vector<glm::vec3> texture_points;
+
+    for (auto pair : map) {
+        texture_points.push_back(this->_dome_vertices[pair.first]);
+        screen_points.push_back(this->_sample_grid[pair.second]);
+    }
+
+    // normalize screen list
+    float screen_min_x = utility::findMinValues(screen_points).x;
+    float screen_max_x = utility::findMaxValues(screen_points).x;
+    float screen_min_y = utility::findMinValues(screen_points).y;
+    float screen_max_y = utility::findMaxValues(screen_points).y;
+
+    std::vector<glm::vec3> screen_points_normalized;
+    for (auto point : screen_points) {
+        float new_x = utility::mapToRange(point.x,
+                                          screen_min_x, screen_max_x,
+                                          -1.0f, 1.0f);
+
+        float new_y = utility::mapToRange(point.y,
+                                          screen_min_y, screen_max_y,
+                                          -1.0f, 1.0f);
+
+        screen_points_normalized.emplace_back(glm::vec3(new_x, new_y, 0.0f));
+    }
+
+    // normalize texture points
+    float texture_min_x = utility::findMinValues(texture_points).x;
+    float texture_max_x = utility::findMaxValues(texture_points).x;
+    float texture_min_z = utility::findMinValues(texture_points).z;
+    float texture_max_z = utility::findMaxValues(texture_points).z;
+
+    std::vector<glm::vec3> texture_coords_normalized;
+    for(auto point:texture_points) {
+        float new_x = utility::mapToRange(point.x,
+                                          texture_min_x, texture_max_x,
+                                          -1.0f, 1.0f);
+
+        float new_y = utility::mapToRange(point.z,
+                                          texture_min_z, texture_max_z,
+                                          -1.0f, 1.0f);
+    }
+
+    // append meta to list
+
+
+    // append meta info to lists
+//    texture_coords_normalized.Add(new Vector3(_numDomeRings, _numDomeRingPoints,
+//                                              texture_coords_normalized.Count));
+//    screen_points_normalized.Add(
+//            new Vector3(_numDomeRings, _numDomeRingPoints, screen_points_normalized.Count));
+//
+//
+//    // save to file
+//    savePointListToFile(texture_coords_normalized, "Assets/Output/texture_coords.txt");
+//    savePointListToFile(screen_points_normalized, "Assets/Output/mesh.txt");
 
 
     return std::vector<glm::vec3>();

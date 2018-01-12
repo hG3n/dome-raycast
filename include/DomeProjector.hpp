@@ -7,11 +7,15 @@
 
 
 #include <vector>
-#include <glm/glm.hpp>
+#include <map>
 #include <ostream>
+#include <limits>
+
+#include <glm/glm.hpp>
 
 #include "Frustum.hpp"
 #include "Sphere.hpp"
+
 
 struct Screen {
 
@@ -29,26 +33,27 @@ class DomeProjector {
 public:
 
     DomeProjector(Frustum *_frustum, Screen *_screen);
-    DomeProjector(Frustum *_frustum, Screen *_screen, int _grid_rings, int _grid_ring_elements, glm::vec3 const& position);
+    DomeProjector(Frustum *_frustum, Screen *_screen, int _grid_rings, int _grid_ring_elements,
+                  glm::vec3 const &position, int dome_rings, int dome_ring_elements);
     ~DomeProjector();
 
     std::vector<glm::vec3> generateRadialGrid() const;
     std::vector<glm::vec3> calculateTransformationMesh();
-    void calculateDomeHitpoints(Sphere* mirror, Sphere* dome);
+    void calculateDomeHitpoints(Sphere *mirror, Sphere *dome);
 
     // setter
     void updateFrustum(Frustum *);
     void updateScreen(Screen *);
     void updateSampleGrid(int, int);
-    void updatePosition(glm::vec3 const& new_position);
+    void updatePosition(glm::vec3 const &new_position);
 
     // getter
     unsigned int getNumSamplepoints() const;
     unsigned int getTotalHitCount() const;
-    std::vector<glm::vec3>const& get_sample_grid() const;
-    std::vector<glm::vec3>const& get_first_hits() const;
-    std::vector<glm::vec3>const& get_second_hits() const;
-    std::vector<glm::vec3>const& get_dome_vertices() const;
+    std::vector<glm::vec3> const &get_sample_grid() const;
+    std::vector<glm::vec3> const &get_first_hits() const;
+    std::vector<glm::vec3> const &get_second_hits() const;
+    std::vector<glm::vec3> const &get_dome_vertices() const;
 
     // ostream
     friend std::ostream &operator<<(std::ostream &os, const DomeProjector &projector);
@@ -66,6 +71,9 @@ private:
 
     int _grid_rings;
     int _grid_ring_elements;
+
+    int _dome_rings;
+    int _dome_ring_elements;
 
     std::vector<glm::vec3> _sample_grid;
     std::vector<glm::vec3> _first_hits;
