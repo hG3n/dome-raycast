@@ -22,14 +22,14 @@ struct Frustum {
     glm::vec3 _position;
 
     // frustum corners
-    std::vector<glm::vec3> _far_clipping_corners;
-    /* frustum far clipping plane indices
+    std::vector<glm::vec3> _near_clipping_corners;
+    /* frustum near clipping plane indices
      * 0 ---- 1
      * |      |
      * 3 ---- 2
      */
 
-    std::vector<glm::vec3> _near_clipping_corners;
+    std::vector<glm::vec3> _far_clipping_corners;
 };
 
 

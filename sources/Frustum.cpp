@@ -44,13 +44,13 @@ Frustum::Frustum(glm::mat4 const &_projection_mat, glm::vec3 const& world_positi
         corners[i] = corners[i] * inv_proj;
         corners[i] /= corners[i].w;
 
-        // translate to world posiiotn
+        // translate to world position
         glm::vec3 corner_world = glm::vec3(corners[i])  + world_position;
 
         if(i < 4) {
-            _near_clipping_corners.emplace_back(corner_world);
-        } else {
             _far_clipping_corners.emplace_back(corner_world);
+        } else {
+            _near_clipping_corners.emplace_back(corner_world);
         }
     }
 
@@ -58,12 +58,12 @@ Frustum::Frustum(glm::mat4 const &_projection_mat, glm::vec3 const& world_positi
         std::cout << "Frustum corners" << std::endl;
         std::cout << "===============" << std::endl;
         std::cout << "  Near:" << std::endl;
-        for (auto I : _near_clipping_corners) {
+        for (auto I : _far_clipping_corners) {
             std::cout << "     " << utility::vecstr(I) << std::endl;
         }
 
         std::cout << "  Far:" << std::endl;
-        for (auto I : _far_clipping_corners) {
+        for (auto I : _near_clipping_corners) {
             std::cout << "     " << utility::vecstr(I) << std::endl;
         }
         std::cout << std::endl;
