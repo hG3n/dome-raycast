@@ -74,12 +74,13 @@ glm::vec3 jsonArray2Vec3(json11::Json vec_obj) {
  * @param config
  * @return
  */
-bool loadConfig(std::string const &file_name, json11::Json &config) {
+bool loadConfig(std::string const &file_name, std::map<std::string, json11::Json> &config) {
 
     std::ifstream ifs(file_name);
     if (ifs.good()) {
         std::cout << "Loaded file '" << file_name << "' successfully" << std::endl;
     } else {
+        std::cout << "Config: '" << file_name << "' not found!" << std::endl;
         return false;
     }
 
@@ -91,11 +92,12 @@ bool loadConfig(std::string const &file_name, json11::Json &config) {
 
     if (error.empty()) {
         std::cout << "Json parsing succeeded!" << std::endl;
-        config = json;
     } else {
         std::cout << "Error loading json: " << error << std::endl;
         return false;
     }
+
+    config = json.object_items();
 
     return true;
 }
@@ -232,6 +234,69 @@ void cleanupGL() {
 
 
 /**
+ * run model calculations duuh
+ */
+void runModelCalculations() {
+
+    glm::vec3 mirror_position = jsonArray2Vec3(model_config["mirror"]["position"]);
+    glm::vec3 dome_position = jsonArray2Vec3(model_config["dome"]["position"]);
+
+    float mirror_radius = (float) model_config["mirror"]["radius"].number_value();
+    float dome_radius = (float) model_config["dome"]["radius"].number_value();
+
+    // create mirror & dome
+    Sphere *mirror = new Sphere(mirror_radius, mirror_position);
+    Sphere *dome = new Sphere(dome_radius, dome_position);
+
+    float fov = (float) model_config["projector"]["fov"].number_value();
+    int screen_width = (int) model_config["projector"]["screen"]["w"].number_value();
+    int screen_height = (int) model_config["projector"]["screen"]["h"].number_value();
+
+    glm::mat4 projector_projection = glm::perspective(glm::radians(fov),
+                                                      float(screen_width) / float(screen_height),
+                                                      0.1f,
+                                                      10.0f);
+
+
+    // view mat
+    glm::vec3 projector_world_pos = jsonArray2Vec3(model_config["projector"]["position"]);
+
+    int grid_rings = (int) model_config["projector"]["grid"]["num_rings"].number_value();
+    int grid_ring_elements = (int) model_config["projector"]["grid"]["num_ring_elements"].number_value();
+    int dome_rings = (int) model_config["projector"]["dome"]["num_rings"].number_value();
+    int dome_ring_elements = (int) model_config["projector"]["dome"]["num_ring_elements"].number_value();
+
+    // build the dome projector
+    Screen *screen = new Screen(screen_width, screen_height);
+    Frustum *frustum = new Frustum(projector_projection, projector_world_pos, true);
+    dp = new DomeProjector(frustum,
+                           screen,
+                           grid_rings,
+                           grid_ring_elements,
+                           projector_world_pos,
+                           dome_rings,
+                           dome_ring_elements);
+
+    dp->calculateDomeHitpoints(mirror, dome);
+    dp->calculateTransformationMesh();
+    dp->calculateTransformationMesh();
+
+    far_clipping_corners = frustum->_near_clipping_corners;
+    near_clipping_corners = frustum->_far_clipping_corners;
+
+    first_hitpoints = dp->get_first_hits();
+    second_hitpoints = dp->get_second_hits();
+    sample_grid = dp->get_sample_grid();
+    dome_vertices = dp->get_dome_vertices();
+
+    // cleanup
+    delete dp;
+    delete mirror;
+    delete dome;
+}
+
+
+/**
  * draw a vertex array
  * @param matrix_id
  * @param vertex_buffer_id
@@ -310,6 +375,12 @@ void render(glm::mat4 mvp) {
             mvp = glm::rotate(mvp, glm::radians(1.0f), glm::vec3(0, 1, 0));
         } else if (glfwGetKey(window, GLFW_KEY_D)) {
             mvp = glm::rotate(mvp, glm::radians(-1.0f), glm::vec3(0, 1, 0));
+        } else if (glfwGetKey(window, GLFW_KEY_R)) {
+            if(loadConfig("../configs/model.json", model_config)) {
+                runModelCalculations();
+            } else {
+                std::cout << "failed to reload config" << std::endl;
+            }
         }
 
         for (auto element : sample_grid) {
@@ -411,64 +482,6 @@ void setupBuffers() {
 
 }
 
-void runModelCalculations() {
-
-    glm::vec3 mirror_position = jsonArray2Vec3(model_config["mirror"]["position"]);
-    glm::vec3 dome_position = jsonArray2Vec3(model_config["dome"]["position"]);
-
-    float mirror_radius = (float)model_config["mirror"]["radius"].number_value();
-    float dome_radius = (float)model_config["dome"]["radius"].number_value();
-
-    // create mirror & dome
-    Sphere *mirror = new Sphere(mirror_radius, mirror_position);
-    Sphere *dome = new Sphere(dome_radius, dome_position);
-
-    float fov = (float) model_config["projector"]["fov"].number_value();
-    int screen_width = (int) model_config["projector"]["screen"]["w"].number_value();
-    int screen_height = (int) model_config["projector"]["screen"]["h"].number_value();
-
-    glm::mat4 projector_projection = glm::perspective(glm::radians(fov),
-                                                      float(screen_width) / float(screen_height),
-                                                      0.1f,
-                                                      10.0f);
-
-
-    // view mat
-    glm::vec3 projector_world_pos = jsonArray2Vec3(model_config["projector"]["position"]);
-
-    int grid_rings = (int) model_config["projector"]["grid"]["num_rings"].number_value();
-    int grid_ring_elements = (int) model_config["projector"]["grid"]["num_ring_elements"].number_value();
-    int dome_rings = (int) model_config["projector"]["dome"]["num_rings"].number_value();
-    int dome_ring_elements = (int) model_config["projector"]["dome"]["num_ring_elements"].number_value();
-
-    // build the dome projector
-    Screen *screen = new Screen(screen_width, screen_height);
-    Frustum *frustum = new Frustum(projector_projection, projector_world_pos, true);
-    dp = new DomeProjector(frustum,
-                           screen,
-                           grid_rings,
-                           grid_ring_elements,
-                           projector_world_pos,
-                           dome_rings,
-                           dome_ring_elements);
-
-    dp->calculateDomeHitpoints(mirror, dome);
-    dp->calculateTransformationMesh();
-    dp->calculateTransformationMesh();
-
-    far_clipping_corners = frustum->_near_clipping_corners;
-    near_clipping_corners = frustum->_far_clipping_corners;
-
-    first_hitpoints = dp->get_first_hits();
-    second_hitpoints = dp->get_second_hits();
-    sample_grid = dp->get_sample_grid();
-    dome_vertices = dp->get_dome_vertices();
-
-    // cleanup
-    delete dp;
-    delete mirror;
-    delete dome;
-}
 
 /**
  * main function
@@ -477,11 +490,11 @@ void runModelCalculations() {
 int main() {
 
     // load config
-    json11::Json config;
-    if (loadConfig("../config/config.json", config)) {
-        model_config = config["model"].object_items();
-        application_config = config["application"].object_items();
-    } else {
+
+    if (!loadConfig("../configs/application.json", application_config)) {
+        return 0;
+    }
+    if (!loadConfig("../configs/model.json", model_config)) {
         return 0;
     }
 
@@ -511,9 +524,9 @@ int main() {
     origin.emplace_back((0, 0, 0));
 
     // create camera projection matrix
-    float fov = (float)application_config["camera"]["fov"].number_value();
-    int screen_width = (int)application_config["camera"]["screen"]["w"].number_value();
-    int screen_height = (int)application_config["camera"]["screen"]["h"].number_value();
+    float fov = (float) application_config["camera"]["fov"].number_value();
+    int screen_width = (int) application_config["camera"]["screen"]["w"].number_value();
+    int screen_height = (int) application_config["camera"]["screen"]["h"].number_value();
     glm::mat4 camera_projection = glm::perspective(glm::radians(fov),
                                                    float(screen_width) / float(screen_height),
                                                    0.1f,
