@@ -52,7 +52,8 @@ DomeProjector::DomeProjector(Frustum *_frustum,
     }
 
     // translate sample grid to projector position
-    for (int i = 0; i < this->_sample_grid.size(); ++i) {
+    // ignore the first element which is already in the frustums center
+    for (int i = 1; i < this->_sample_grid.size(); ++i) {
         this->_sample_grid[i] = this->_sample_grid[i] + position;
     }
 
@@ -73,14 +74,18 @@ DomeProjector::~DomeProjector() {
  */
 std::vector<glm::vec3> DomeProjector::generateRadialGrid() const {
 
-    float step_size = ((this->_frustum->_far_clipping_corners[0].x - this->_frustum->_far_clipping_corners[1].x) / 2) /
-                      _grid_rings;
+    float step_size =
+            ((this->_frustum->_near_clipping_corners[0].x - this->_frustum->_near_clipping_corners[1].x) / 2) /
+            _grid_rings;
 
     // define center point
     glm::vec3 center_point = glm::vec3(
-            this->_frustum->_far_clipping_corners[1].x + this->_frustum->_far_clipping_corners[0].x,
-            this->_frustum->_far_clipping_corners[0].y + this->_frustum->_far_clipping_corners[3].y,
-            this->_frustum->_far_clipping_corners[0].z);
+            this->_frustum->_near_clipping_corners[1].x + this->_frustum->_near_clipping_corners[0].x,
+            this->_frustum->_near_clipping_corners[3].y + this->_frustum->_near_clipping_corners[0].y,
+            this->_frustum->_near_clipping_corners[0].z);
+
+
+    std::cout << utility::vecstr(center_point) << std::endl;
 
     float angle = 360.0f / _grid_ring_elements;
 
@@ -93,7 +98,7 @@ std::vector<glm::vec3> DomeProjector::generateRadialGrid() const {
             glm::vec3 coord = euler_quat * glm::vec3(ring_idx * step_size, 0.0, 0.0);
 
             // push back the rotated point at the far clipping plaes z position
-            vertices.emplace_back(glm::vec3(coord.x, coord.y, this->_frustum->_far_clipping_corners[0].z));
+            vertices.emplace_back(glm::vec3(coord.x, coord.y, this->_frustum->_near_clipping_corners[0].z));
         }
     }
 
@@ -112,14 +117,18 @@ void DomeProjector::generateRadialGrid() {
         this->_sample_grid.clear();
     }
 
-    float step_size = ((this->_frustum->_far_clipping_corners[0].x - this->_frustum->_far_clipping_corners[1].x) / 2) /
-                      _grid_rings;
+    float step_size =
+            ((this->_frustum->_near_clipping_corners[0].x - this->_frustum->_near_clipping_corners[1].x) / 2) /
+            _grid_rings;
 
     // define center point
     glm::vec3 center_point = glm::vec3(
-            this->_frustum->_far_clipping_corners[1].x + this->_frustum->_far_clipping_corners[0].x,
-            this->_frustum->_far_clipping_corners[0].y + this->_frustum->_far_clipping_corners[3].y,
-            this->_frustum->_far_clipping_corners[0].z);
+            (this->_frustum->_near_clipping_corners[1].x + this->_frustum->_near_clipping_corners[0].x) / 2,
+            (this->_frustum->_near_clipping_corners[1].y + this->_frustum->_near_clipping_corners[3].y) / 2,
+            this->_frustum->_near_clipping_corners[0].z);
+
+
+    std::cout << utility::vecstr(center_point) << std::endl;
 
     float angle = 360.0f / _grid_ring_elements;
 
@@ -129,8 +138,8 @@ void DomeProjector::generateRadialGrid() {
             glm::quat euler_quat(glm::vec3(0.0, 0.0, glm::radians(angle * ring_point_idx)));
             glm::vec3 coord = euler_quat * glm::vec3(ring_idx * step_size, 0.0, 0.0);
 
-            // push back the rotated point at the far clipping plaes z position
-            this->_sample_grid.emplace_back(glm::vec3(coord.x, coord.y, this->_frustum->_far_clipping_corners[0].z));
+            // push back the rotated point at the near clipping plaes z position
+            this->_sample_grid.emplace_back(glm::vec3(coord.x, coord.y, this->_frustum->_near_clipping_corners[0].z));
         }
     }
 
@@ -275,7 +284,7 @@ std::vector<glm::vec3> DomeProjector::calculateTransformationMesh() {
     float texture_max_z = utility::findMaxValues(texture_points).z;
 
     std::vector<glm::vec3> texture_coords_normalized;
-    for(auto point:texture_points) {
+    for (auto point:texture_points) {
         float new_x = utility::mapToRange(point.x,
                                           texture_min_x, texture_max_x,
                                           -1.0f, 1.0f);
@@ -284,6 +293,9 @@ std::vector<glm::vec3> DomeProjector::calculateTransformationMesh() {
                                           texture_min_z, texture_max_z,
                                           -1.0f, 1.0f);
     }
+
+    this->_screen_points = screen_points_normalized;
+    this->_texture_coords = texture_coords_normalized;
 
     // append meta to list
 

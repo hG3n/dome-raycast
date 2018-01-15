@@ -81,6 +81,9 @@ private:
 
     std::vector<glm::vec3> _dome_vertices;
 
+    std::vector<glm::vec3> _screen_points;
+    std::vector<glm::vec3> _texture_coords;
+
 };
 
 
