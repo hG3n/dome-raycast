@@ -1,0 +1,83 @@
+{
+    "model": {
+        "projector": {
+            "position": [
+                0.0,
+                0.95,
+                0.0
+            ],
+            "rotation": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "fov": 60.0,
+            "screen": {
+                "w": 1920,
+                "h": 1080
+            },
+            "grid": {
+                "num_rings": 72,
+                "num_ring_elements": 72
+            },
+            "dome": {
+                "num_rings": 18,
+                "num_ring_elements": 36
+            }
+        },
+        "dome": {
+            "radius": 1.6,
+            "position": [
+                0.0,
+                1.9,
+                0.0
+            ],
+            "rotation": [
+                0.0,
+                0.0,
+                0.0
+            ]
+        },
+        "mirror": {
+            "radius": 0.4,
+            "position": [
+                0.0,
+                0.8,
+                -1.7
+            ],
+            "rotation": [
+                0.0,
+                0.0,
+                0.0
+            ]
+        }
+    },
+    "application": {
+        "camera": {
+            "screen": {
+                "w": 1280,
+                "h": 800
+            },
+            "fov": 90.0,
+            "position": [
+                0.0,
+                1.8,
+                -3.5
+            ],
+            "lookat": [
+                0.0,
+                1.0,
+                0.0
+            ],
+            "up": [
+                0.0,
+                1.0,
+                0.0
+            ]
+        },
+        "options": {
+            "mouse": false,
+            "vsync": true
+        }
+    }
+}

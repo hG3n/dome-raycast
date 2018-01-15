@@ -13,23 +13,24 @@
 // Include GLM
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <sstream>
+
+#include "json11.hpp"
 
 #include "Sphere.hpp"
-#include "Utility.hpp"
 #include "ShaderUtil.hpp"
 #include "DomeProjector.hpp"
 #include "vertex_buffer_data.hpp"
 
 // gl globals
+GLFWwindow *window;
+DomeProjector *dp;
+
 int SCREEN_WIDTH = 1280;
 int SCREEN_HEIGHT = 800;
 float FOV = 90.0f;
-float NEAR_CLIPPING_PLANE = 0.1f;
-float FAR_CLIPPING_PLANE = 10.0f;
 
 bool SHOW_MOUSE = false;
-
-GLFWwindow *window;
 
 std::vector<GLuint> vertex_buffer_ids;
 std::vector<GLuint> vertex_array_ids;
@@ -53,6 +54,51 @@ int SAMPLE_RINGS = 72;
 int SAMPLE_RING_POINTS = 72;
 int DOME_RINGS = 18;
 int DOME_RING_ELEMENTS = 36;
+
+std::map<std::string, json11::Json> model_config;
+std::map<std::string, json11::Json> application_config;
+
+/**
+ * extract json object from vector
+ * @param vec_obj
+ * @return
+ */
+glm::vec3 jsonArray2Vec3(json11::Json vec_obj) {
+    std::vector<json11::Json> e = vec_obj.array_items();
+    return glm::vec3(e[0].number_value(), e[1].number_value(), e[2].number_value());
+}
+
+/**
+ * load json config
+ * @param file_name
+ * @param config
+ * @return
+ */
+bool loadConfig(std::string const &file_name, json11::Json &config) {
+
+    std::ifstream ifs(file_name);
+    if (ifs.good()) {
+        std::cout << "Loaded file '" << file_name << "' successfully" << std::endl;
+    } else {
+        return false;
+    }
+
+    // parse to string
+    std::string str((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
+
+    std::string error;
+    auto json = json11::Json::parse(str, error);
+
+    if (error.empty()) {
+        std::cout << "Json parsing succeeded!" << std::endl;
+        config = json;
+    } else {
+        std::cout << "Error loading json: " << error << std::endl;
+        return false;
+    }
+
+    return true;
+}
 
 /**
  * create a vertex buffer
@@ -365,44 +411,54 @@ void setupBuffers() {
 
 }
 
+void runModelCalculations() {
 
-/**
- * main function
- * @return
- */
-int main() {
+    glm::vec3 mirror_position = jsonArray2Vec3(model_config["mirror"]["position"]);
+    glm::vec3 dome_position = jsonArray2Vec3(model_config["dome"]["position"]);
+
+    float mirror_radius = (float)model_config["mirror"]["radius"].number_value();
+    float dome_radius = (float)model_config["dome"]["radius"].number_value();
 
     // create mirror & dome
-    Sphere *mirror = new Sphere(0.4, glm::vec3(0.0, 0.8, -1.7));
-    Sphere *dome = new Sphere(1.6, glm::vec3(0.0, 1.9, 0.0));
+    Sphere *mirror = new Sphere(mirror_radius, mirror_position);
+    Sphere *dome = new Sphere(dome_radius, dome_position);
 
-//    // create projector_projection matrix and calculate frustum corners
-    glm::mat4 projector_projection = glm::perspective(glm::radians(FOV),
-                                                      float(SCREEN_WIDTH) / float(SCREEN_HEIGHT),
-                                                      NEAR_CLIPPING_PLANE,
-                                                      FAR_CLIPPING_PLANE);
+    float fov = (float) model_config["projector"]["fov"].number_value();
+    int screen_width = (int) model_config["projector"]["screen"]["w"].number_value();
+    int screen_height = (int) model_config["projector"]["screen"]["h"].number_value();
+
+    glm::mat4 projector_projection = glm::perspective(glm::radians(fov),
+                                                      float(screen_width) / float(screen_height),
+                                                      0.1f,
+                                                      10.0f);
+
 
     // view mat
-    glm::vec3 projector_world_pos = glm::vec3(0.0, 0.95, 0.0);
+    glm::vec3 projector_world_pos = jsonArray2Vec3(model_config["projector"]["position"]);
+
+    int grid_rings = (int) model_config["projector"]["grid"]["num_rings"].number_value();
+    int grid_ring_elements = (int) model_config["projector"]["grid"]["num_ring_elements"].number_value();
+    int dome_rings = (int) model_config["projector"]["dome"]["num_rings"].number_value();
+    int dome_ring_elements = (int) model_config["projector"]["dome"]["num_ring_elements"].number_value();
 
     // build the dome projector
-    Screen *screen = new Screen(SCREEN_WIDTH, SCREEN_HEIGHT);
+    Screen *screen = new Screen(screen_width, screen_height);
     Frustum *frustum = new Frustum(projector_projection, projector_world_pos, true);
-    DomeProjector *dp = new DomeProjector(frustum,
-                                          screen,
-                                          SAMPLE_RINGS,
-                                          SAMPLE_RING_POINTS,
-                                          projector_world_pos,
-                                          DOME_RINGS,
-                                          DOME_RING_ELEMENTS);
+    dp = new DomeProjector(frustum,
+                           screen,
+                           grid_rings,
+                           grid_ring_elements,
+                           projector_world_pos,
+                           dome_rings,
+                           dome_ring_elements);
 
-    // raycast the shit out of the setup
     dp->calculateDomeHitpoints(mirror, dome);
     dp->calculateTransformationMesh();
     dp->calculateTransformationMesh();
 
     far_clipping_corners = frustum->_near_clipping_corners;
     near_clipping_corners = frustum->_far_clipping_corners;
+
     first_hitpoints = dp->get_first_hits();
     second_hitpoints = dp->get_second_hits();
     sample_grid = dp->get_sample_grid();
@@ -412,6 +468,24 @@ int main() {
     delete dp;
     delete mirror;
     delete dome;
+}
+
+/**
+ * main function
+ * @return
+ */
+int main() {
+
+    // load config
+    json11::Json config;
+    if (loadConfig("../config/config.json", config)) {
+        model_config = config["model"].object_items();
+        application_config = config["application"].object_items();
+    } else {
+        return 0;
+    }
+
+    runModelCalculations();
 
     initializeGLContext();
 
@@ -434,23 +508,27 @@ int main() {
     // Get a handle for our "MVP" uniform
     GLint matrix_id = glGetUniformLocation(program_id, "MVP");
 
-    origin.push_back(glm::vec3(0, 0, 0));
+    origin.emplace_back((0, 0, 0));
 
     // create camera projection matrix
-    glm::mat4 camera_projection = glm::perspective(glm::radians(FOV),
-                                                   float(SCREEN_WIDTH) / float(SCREEN_HEIGHT),
+    float fov = (float)application_config["camera"]["fov"].number_value();
+    int screen_width = (int)application_config["camera"]["screen"]["w"].number_value();
+    int screen_height = (int)application_config["camera"]["screen"]["h"].number_value();
+    glm::mat4 camera_projection = glm::perspective(glm::radians(fov),
+                                                   float(screen_width) / float(screen_height),
                                                    0.1f,
                                                    100.0f);
 
-    glm::vec3 camera_world_pos = glm::vec3(0.0, 1.8, -3.5);
-    glm::vec3 camera_lookat = glm::vec3(0.0, 1.0, 0.0);
+
+    glm::vec3 camera_world_pos = jsonArray2Vec3(application_config["camera"]["position"]);
+    glm::vec3 camera_lookat = jsonArray2Vec3(application_config["camera"]["lookat"]);
+    glm::vec3 camera_up = jsonArray2Vec3(application_config["camera"]["up"]);
     glm::mat4 camera_view = glm::lookAt(
             camera_world_pos,           // camera pos world space
             camera_lookat,              // lookat
-            glm::vec3(0.0, 1.0, 0.0)    // up vec
+            camera_up                   // up vec
     );
 
-    // model mat
     glm::mat4 model(1.0f);
 
     // MVP

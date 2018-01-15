@@ -85,8 +85,6 @@ std::vector<glm::vec3> DomeProjector::generateRadialGrid() const {
             this->_frustum->_near_clipping_corners[0].z);
 
 
-    std::cout << utility::vecstr(center_point) << std::endl;
-
     float angle = 360.0f / _grid_ring_elements;
 
     std::vector<glm::vec3> vertices;
@@ -296,6 +294,7 @@ std::vector<glm::vec3> DomeProjector::calculateTransformationMesh() {
 
     this->_screen_points = screen_points_normalized;
     this->_texture_coords = texture_coords_normalized;
+
 
     // append meta to list
 
