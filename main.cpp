@@ -15,6 +15,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include "Sphere.hpp"
+#include "Utility.hpp"
 #include "ShaderUtil.hpp"
 #include "DomeProjector.hpp"
 #include "vertex_buffer_data.hpp"
@@ -44,6 +45,8 @@ std::vector<glm::vec3> second_hitpoints;
 std::vector<glm::vec3> sample_grid;
 std::vector<glm::vec3> origin;
 std::vector<glm::vec3> dome_vertices;
+std::vector<glm::vec3> screen_points;
+std::vector<glm::vec3> texture_coords;
 
 // raycast globals
 int SAMPLE_RINGS = 72;
@@ -318,64 +321,7 @@ void render(glm::mat4 mvp) {
     }
 }
 
-
-/**
- * main function
- * @return
- */
-int main() {
-
-    // create mirror & dome
-    Sphere *mirror = new Sphere(0.4, glm::vec3(0.0, 0.8, -1.7));
-    Sphere *dome = new Sphere(1.6, glm::vec3(0.0, 1.9, 0.0));
-
-//    // create projector_projection matrix and calculate frustum corners
-    glm::mat4 projector_projection = glm::perspective(glm::radians(FOV),
-                                                      float(SCREEN_WIDTH) / float(SCREEN_HEIGHT),
-                                                      NEAR_CLIPPING_PLANE,
-                                                      FAR_CLIPPING_PLANE);
-
-    // view mat
-    glm::vec3 projector_world_pos = glm::vec3(0.0, 0.95, 0.0);
-
-    // build the dome projector
-    Screen *screen = new Screen(SCREEN_WIDTH, SCREEN_HEIGHT);
-    Frustum *frustum = new Frustum(projector_projection, projector_world_pos, true);
-    DomeProjector *dp = new DomeProjector(frustum,
-                                          screen,
-                                          SAMPLE_RINGS,
-                                          SAMPLE_RING_POINTS,
-                                          projector_world_pos,
-                                          DOME_RINGS,
-                                          DOME_RING_ELEMENTS);
-
-    // raycast the shit out of the setup
-    dp->calculateDomeHitpoints(mirror, dome);
-    dp->calculateTransformationMesh();
-    dp->calculateTransformationMesh();
-
-    far_clipping_corners = frustum->_far_clipping_corners;
-    near_clipping_corners = frustum->_near_clipping_corners;
-    first_hitpoints = dp->get_first_hits();
-    second_hitpoints = dp->get_second_hits();
-    sample_grid = dp->get_sample_grid();
-    dome_vertices = dp->get_dome_vertices();
-
-    // cleanup
-    delete dp;
-    delete mirror;
-    delete dome;
-
-    initializeGLContext();
-
-    // generate vertex array
-    GLuint vertex_array_id;
-    glGenVertexArrays(1, &vertex_array_id);
-    glBindVertexArray(vertex_array_id);
-    vertex_array_ids.push_back(vertex_array_id);
-
-    // create buffers
-    vertex_buffer_ids.push_back(createVertexBuffer(vertex_buffer_data::quad));
+void setupBuffers() {
 
     GLuint colorbuffer_blue;
     glGenBuffers(1, &colorbuffer_blue);
@@ -416,6 +362,69 @@ int main() {
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertex_buffer_data::quat_grey), vertex_buffer_data::quat_grey,
                  GL_STATIC_DRAW);
     color_map["grey"] = colorbuffer_grey;
+
+}
+
+
+/**
+ * main function
+ * @return
+ */
+int main() {
+
+    // create mirror & dome
+    Sphere *mirror = new Sphere(0.4, glm::vec3(0.0, 0.8, -1.7));
+    Sphere *dome = new Sphere(1.6, glm::vec3(0.0, 1.9, 0.0));
+
+//    // create projector_projection matrix and calculate frustum corners
+    glm::mat4 projector_projection = glm::perspective(glm::radians(FOV),
+                                                      float(SCREEN_WIDTH) / float(SCREEN_HEIGHT),
+                                                      NEAR_CLIPPING_PLANE,
+                                                      FAR_CLIPPING_PLANE);
+
+    // view mat
+    glm::vec3 projector_world_pos = glm::vec3(0.0, 0.95, 0.0);
+
+    // build the dome projector
+    Screen *screen = new Screen(SCREEN_WIDTH, SCREEN_HEIGHT);
+    Frustum *frustum = new Frustum(projector_projection, projector_world_pos, true);
+    DomeProjector *dp = new DomeProjector(frustum,
+                                          screen,
+                                          SAMPLE_RINGS,
+                                          SAMPLE_RING_POINTS,
+                                          projector_world_pos,
+                                          DOME_RINGS,
+                                          DOME_RING_ELEMENTS);
+
+    // raycast the shit out of the setup
+    dp->calculateDomeHitpoints(mirror, dome);
+    dp->calculateTransformationMesh();
+    dp->calculateTransformationMesh();
+
+    far_clipping_corners = frustum->_near_clipping_corners;
+    near_clipping_corners = frustum->_far_clipping_corners;
+    first_hitpoints = dp->get_first_hits();
+    second_hitpoints = dp->get_second_hits();
+    sample_grid = dp->get_sample_grid();
+    dome_vertices = dp->get_dome_vertices();
+
+    // cleanup
+    delete dp;
+    delete mirror;
+    delete dome;
+
+    initializeGLContext();
+
+    // generate vertex array
+    GLuint vertex_array_id;
+    glGenVertexArrays(1, &vertex_array_id);
+    glBindVertexArray(vertex_array_id);
+    vertex_array_ids.push_back(vertex_array_id);
+
+    // create buffers
+    vertex_buffer_ids.push_back(createVertexBuffer(vertex_buffer_data::quad));
+
+    setupBuffers();
 
     // load shaders
     GLuint program_id = LoadShaders("../shaders/simple.vert", "../shaders/simple.frag");
