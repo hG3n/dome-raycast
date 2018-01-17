@@ -25,6 +25,11 @@
 // gl globals
 GLFWwindow *window;
 DomeProjector *dp;
+Frustum *frustum;
+Screen *screen;
+Sphere *mirror;
+Sphere *dome;
+
 
 int SCREEN_WIDTH = 1280;
 int SCREEN_HEIGHT = 800;
@@ -199,7 +204,7 @@ int initializeGLContext() {
     }
 
     // ensure key input capturing is possible
-    glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
+//    glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
 
     // Hide the mouse and enable unlimited mouvement
     if (!SHOW_MOUSE)
@@ -232,11 +237,7 @@ void cleanupGL() {
 
 }
 
-
-/**
- * run model calculations duuh
- */
-void runModelCalculations() {
+void buildModel() {
 
     glm::vec3 mirror_position = jsonArray2Vec3(model_config["mirror"]["position"]);
     glm::vec3 dome_position = jsonArray2Vec3(model_config["dome"]["position"]);
@@ -245,8 +246,8 @@ void runModelCalculations() {
     float dome_radius = (float) model_config["dome"]["radius"].number_value();
 
     // create mirror & dome
-    Sphere *mirror = new Sphere(mirror_radius, mirror_position);
-    Sphere *dome = new Sphere(dome_radius, dome_position);
+    mirror = new Sphere(mirror_radius, mirror_position);
+    dome = new Sphere(dome_radius, dome_position);
 
     float fov = (float) model_config["projector"]["fov"].number_value();
     int screen_width = (int) model_config["projector"]["screen"]["w"].number_value();
@@ -267,8 +268,8 @@ void runModelCalculations() {
     int dome_ring_elements = (int) model_config["projector"]["dome"]["num_ring_elements"].number_value();
 
     // build the dome projector
-    Screen *screen = new Screen(screen_width, screen_height);
-    Frustum *frustum = new Frustum(projector_projection, projector_world_pos, true);
+    screen = new Screen(screen_width, screen_height);
+    frustum = new Frustum(projector_projection, projector_world_pos, true);
     dp = new DomeProjector(frustum,
                            screen,
                            grid_rings,
@@ -277,8 +278,15 @@ void runModelCalculations() {
                            dome_rings,
                            dome_ring_elements);
 
+}
+
+
+/**
+ * run model calculations duuh
+ */
+void runModelCalculations() {
+
     dp->calculateDomeHitpoints(mirror, dome);
-    dp->calculateTransformationMesh();
     dp->calculateTransformationMesh();
 
     far_clipping_corners = frustum->_near_clipping_corners;
@@ -289,10 +297,6 @@ void runModelCalculations() {
     sample_grid = dp->get_sample_grid();
     dome_vertices = dp->get_dome_vertices();
 
-    // cleanup
-    delete dp;
-    delete mirror;
-    delete dome;
 }
 
 
@@ -339,6 +343,29 @@ drawVertexArray(GLuint matrix_id, GLuint vertex_buffer_id, glm::mat4 mvp, int nu
 
 
 /**
+ * key callback function
+ * @param window
+ * @param key
+ * @param scancode
+ * @param action
+ * @param mods
+ */
+void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods) {
+
+    if (key == GLFW_KEY_S && action == GLFW_RELEASE) {
+        dp->saveTransformations();
+    } else if (key == GLFW_KEY_R && action == GLFW_RELEASE) {
+        if (loadConfig("../configs/model.json", model_config)) {
+            buildModel();
+            runModelCalculations();
+        } else {
+            std::cout << "failed to reload config" << std::endl;
+        }
+    }
+}
+
+
+/**
  * render
  * @param mvp
  */
@@ -346,6 +373,8 @@ void render(glm::mat4 mvp) {
 
     // get uniform locations
     GLint matrix_id = glGetUniformLocation(shader_program_ids[0], "MVP");
+
+    glfwSetKeyCallback(window, key_callback);
 
     bool running = true;
     double last_time = glfwGetTime();
@@ -355,7 +384,7 @@ void render(glm::mat4 mvp) {
         double current_time = glfwGetTime();
         ++num_frames;
         if (current_time - last_time >= 1.0) {
-            // this works better than expected
+            // this works better than expected, neat
             std::cout << "\r";
             std::cout << "ms/frame: " << (1000.0 / double(num_frames));
             num_frames = 0;
@@ -375,13 +404,8 @@ void render(glm::mat4 mvp) {
             mvp = glm::rotate(mvp, glm::radians(1.0f), glm::vec3(0, 1, 0));
         } else if (glfwGetKey(window, GLFW_KEY_D)) {
             mvp = glm::rotate(mvp, glm::radians(-1.0f), glm::vec3(0, 1, 0));
-        } else if (glfwGetKey(window, GLFW_KEY_R)) {
-            if(loadConfig("../configs/model.json", model_config)) {
-                runModelCalculations();
-            } else {
-                std::cout << "failed to reload config" << std::endl;
-            }
         }
+
 
         for (auto element : sample_grid) {
             current_mvp = glm::translate(mvp, element);
@@ -498,6 +522,8 @@ int main() {
         return 0;
     }
 
+    buildModel();
+
     runModelCalculations();
 
     initializeGLContext();
@@ -554,6 +580,11 @@ int main() {
 
     cleanupGL();
     glfwTerminate();
+
+    // cleanup
+    delete dp;
+    delete mirror;
+    delete dome;
 
 }
 
