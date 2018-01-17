@@ -3,20 +3,13 @@
 //
 
 #include <glm/gtc/quaternion.hpp>
+#include <string>
+#include <fstream>
+#include <sstream>
+#include <json11.hpp>
 #include "DomeProjector.hpp"
 #include "Utility.hpp"
 #include "Sphere.hpp"
-
-/**
- * Creates a dome projector object
- * @param _frustum
- * @param _screen
- */
-DomeProjector::DomeProjector(Frustum *_frustum, Screen *_screen)
-        : _frustum(_frustum)
-        , _screen(_screen) {
-}
-
 
 /**
  * Creates a dome projector object alongside the specified sample grid
@@ -67,6 +60,7 @@ DomeProjector::~DomeProjector() {
     delete this->_frustum;
     delete this->_screen;
 }
+
 
 /**
  * generates a radial grid
@@ -181,14 +175,13 @@ void DomeProjector::generateDomeVertices() {
  */
 void DomeProjector::calculateDomeHitpoints(Sphere *mirror, Sphere *dome) {
 
-
-
-
+    this->_first_hits.clear();
+    this->_second_hits.clear();
 
     // translate dome vertices to the domes position
     for (int i = 0; i < this->_dome_vertices.size(); ++i) {
         this->_dome_vertices[i] += dome->get_position();
-        //todo fix scale
+        // todo move translation to scaling
     }
 
     // raycast for each samplepoint
@@ -219,6 +212,7 @@ void DomeProjector::calculateDomeHitpoints(Sphere *mirror, Sphere *dome) {
         }
 
     }
+
 }
 
 /**
@@ -227,16 +221,15 @@ void DomeProjector::calculateDomeHitpoints(Sphere *mirror, Sphere *dome) {
  */
 std::vector<glm::vec3> DomeProjector::calculateTransformationMesh() {
 
-
     // create green list here
     std::map<int, int> map;
 
     float last_distance = std::numeric_limits<float>::max();
     int last_hitpoint_idx = 0;
 
-    for (int vert_idx = 0; vert_idx < this->_dome_vertices.size(); vert_idx++) {
+    for (int vert_idx = 0; vert_idx < this->_dome_vertices.size(); ++vert_idx) {
         for (int hp_idx = 0; hp_idx < this->_second_hits.size(); ++hp_idx) {
-            float current_distance = glm::length(this->_second_hits[hp_idx] - this->_dome_vertices[vert_idx]);
+            float current_distance = glm::length(this->_dome_vertices[vert_idx] - this->_second_hits[hp_idx]);
             if (current_distance < last_distance) {
                 last_distance = current_distance;
                 last_hitpoint_idx = hp_idx;
@@ -285,34 +278,57 @@ std::vector<glm::vec3> DomeProjector::calculateTransformationMesh() {
     for (auto point:texture_points) {
         float new_x = utility::mapToRange(point.x,
                                           texture_min_x, texture_max_x,
-                                          -1.0f, 1.0f);
+                                          0.0f, 1.0f);
 
         float new_y = utility::mapToRange(point.z,
                                           texture_min_z, texture_max_z,
-                                          -1.0f, 1.0f);
+                                          0.0f, 1.0f);
+
+        texture_coords_normalized.emplace_back(glm::vec3(new_x, new_y, 0.0f));
     }
 
     this->_screen_points = screen_points_normalized;
     this->_texture_coords = texture_coords_normalized;
 
-
-    // append meta to list
-
-
-    // append meta info to lists
-//    texture_coords_normalized.Add(new Vector3(_numDomeRings, _numDomeRingPoints,
-//                                              texture_coords_normalized.Count));
-//    screen_points_normalized.Add(
-//            new Vector3(_numDomeRings, _numDomeRingPoints, screen_points_normalized.Count));
-//
-//
-//    // save to file
-//    savePointListToFile(texture_coords_normalized, "Assets/Output/texture_coords.txt");
-//    savePointListToFile(screen_points_normalized, "Assets/Output/mesh.txt");
-
-
     return std::vector<glm::vec3>();
 }
+
+
+/**
+ * saves transformations to text file with maybe some time the current timestamp
+ */
+void DomeProjector::saveTransformations() const {
+
+    std::vector<glm::vec3> screen_cpy(this->_screen_points) ;
+    std::stringstream oss;
+    for (auto point: screen_cpy) {
+        oss << point.x << " " << point.y << " " << point.z << std::endl;
+    }
+
+    oss << this->_dome_rings << " " << this->_dome_ring_elements << " " << this->_screen_points.size() << std::endl;
+
+    std::ofstream out_stream;
+    out_stream.open("out/screen_points.txt");
+    out_stream << oss.str();
+    out_stream.close();
+
+    // clear the stringstream by filling it with an empty string
+    oss.str(std::string());
+
+    std::vector<glm::vec3> texture_cpy(this->_texture_coords);
+    for (auto point: texture_cpy) {
+        oss << point.x << " " << point.y << " " << point.z << std::endl;
+    }
+
+    oss << this->_dome_rings << " " << this->_dome_ring_elements << " " << this->_screen_points.size() << std::endl;
+
+    out_stream.open("out/texture_coords.txt");
+    out_stream << oss.str();
+    out_stream.close();
+
+    std::cout << "successfully saved texture and screen coords in 'out/'" << std::endl;
+}
+
 
 /**
  * Updates the frustum and recalculates the sample points.

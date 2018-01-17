@@ -32,7 +32,6 @@ class DomeProjector {
 
 public:
 
-    DomeProjector(Frustum *_frustum, Screen *_screen);
     DomeProjector(Frustum *_frustum, Screen *_screen, int _grid_rings, int _grid_ring_elements,
                   glm::vec3 const &position, int dome_rings, int dome_ring_elements);
     ~DomeProjector();
@@ -40,6 +39,8 @@ public:
     std::vector<glm::vec3> generateRadialGrid() const;
     std::vector<glm::vec3> calculateTransformationMesh();
     void calculateDomeHitpoints(Sphere *mirror, Sphere *dome);
+
+    void saveTransformations() const;
 
     // setter
     void updateFrustum(Frustum *);
