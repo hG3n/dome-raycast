@@ -147,14 +147,14 @@ void DomeProjector::generateDomeVertices() {
      * PHI - X AND
      */
     float delta_theta = 360.0f / (float) (this->_dome_ring_elements);
-    float delta_phi = 90.0f / (float) (this->_dome_rings - 1);
+    float delta_phi = 90.0f / (float) (this->_dome_rings);
 
     // define center point
     std::vector<glm::vec3> vertices;
     glm::vec3 pole_cap(0.0f, 1.0f, 0.0f);
     vertices.push_back(pole_cap);
 
-    for (int ring_idx = 0; ring_idx < this->_dome_rings; ++ring_idx) {
+    for (int ring_idx = 1; ring_idx < this->_dome_rings + 1; ++ring_idx) {
         glm::quat phi_quat(glm::vec3(glm::radians(ring_idx * delta_phi), 0.0f, 0.0f));
         glm::vec3 vec = phi_quat * glm::vec3(pole_cap.x, pole_cap.y, pole_cap.z);
         for (int segment_idx = 0; segment_idx < this->_dome_ring_elements; ++segment_idx) {
@@ -185,8 +185,14 @@ void DomeProjector::calculateDomeHitpoints(Sphere *mirror, Sphere *dome) {
     }
 
     // raycast for each samplepoint
-    // todo ignore points outside of the frustum
     for (int i = 0; i < this->_sample_grid.size(); ++i) {
+
+
+        // todo ignore points outside of the frustum
+//        if (this->_sample_grid[i].y > _frustum->_near_clipping_corners[3].y &&
+//            this->_sample_grid[i].y < _frustum->_near_clipping_corners[0].y) {
+//            break;
+//        }
 
         // calculate initial ray direction
         glm::vec3 initial_direction = this->_sample_grid[i] - this->_position;
@@ -237,16 +243,23 @@ std::vector<glm::vec3> DomeProjector::calculateTransformationMesh() {
         }
         last_distance = std::numeric_limits<float>::max();
         map.insert(std::pair<int, int>(vert_idx, last_hitpoint_idx));
-
     }
 
     // calculate mapping
     std::vector<glm::vec3> screen_points;
     std::vector<glm::vec3> texture_points;
 
+    std::cout << "element 33" << std::endl;
+    std::cout << utility::vecstr(this->_dome_vertices[0]) << std::endl;
+    std::cout << utility::vecstr(this->_second_hits[33]) << std::endl;
+
     for (auto pair : map) {
+
+        std::cout << "dome: " << pair.first << " texture " << pair.second << std::endl;
+
         texture_points.push_back(this->_dome_vertices[pair.first]);
         screen_points.push_back(this->_sample_grid[pair.second]);
+
     }
 
     // normalize screen list
@@ -299,7 +312,7 @@ std::vector<glm::vec3> DomeProjector::calculateTransformationMesh() {
  */
 void DomeProjector::saveTransformations() const {
 
-    std::vector<glm::vec3> screen_cpy(this->_screen_points) ;
+    std::vector<glm::vec3> screen_cpy(this->_screen_points);
     std::stringstream oss;
     for (auto point: screen_cpy) {
         oss << point.x << " " << point.y << " " << point.z << std::endl;
