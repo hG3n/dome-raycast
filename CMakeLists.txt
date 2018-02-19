@@ -29,7 +29,7 @@ set(SOURCE_FILES
         sources/Hitpoint.cpp
         sources/ShaderUtil.cpp
         sources/Utility.cpp
-        sources/json11.cpp
+        sources/lib/json11.cpp
         sources/Shape.cpp
         sources/Frustum.cpp
         sources/DomeProjector.cpp
@@ -42,7 +42,7 @@ set(HEADER_FILES
         include/Hitpoint.hpp
         include/ShaderUtil.hpp
         include/Utility.hpp
-        include/json11.hpp
+        include/lib/json11.hpp
         include/vertex_buffer_data.hpp
         include/Shape.hpp
         include/Frustum.hpp

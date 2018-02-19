@@ -15,7 +15,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <sstream>
 
-#include "json11.hpp"
+#include "lib/json11.hpp"
 
 #include "Sphere.hpp"
 #include "ShaderUtil.hpp"
@@ -68,7 +68,7 @@ std::map<std::string, json11::Json> application_config;
  * @param vec_obj
  * @return
  */
-glm::vec3 jsonArray2Vec3(json11::Json vec_obj) {
+glm::vec3 jsonArray2Vec3(json11::Json const& vec_obj) {
     std::vector<json11::Json> e = vec_obj.array_items();
     return glm::vec3(e[0].number_value(), e[1].number_value(), e[2].number_value());
 }
@@ -163,7 +163,7 @@ GLuint createSolidColorBuffer(int size, float r, float g, float b) {
  * initialize open gl context by creating a window and setting up general behaviour
  * @return
  */
-int initializeGLContext() {
+int initializeGLContext(bool show_mouse, bool with_vsync) {
 
     // Initialise GLFW
     if (!glfwInit()) {
@@ -207,7 +207,7 @@ int initializeGLContext() {
 //    glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
 
     // Hide the mouse and enable unlimited mouvement
-    if (!SHOW_MOUSE)
+    if (!show_mouse)
         glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     // further settings
@@ -285,7 +285,6 @@ void buildModel() {
  * run model calculations duuh
  */
 void runModelCalculations() {
-
     dp->calculateDomeHitpoints(mirror, dome);
     dp->calculateTransformationMesh();
 
@@ -297,6 +296,8 @@ void runModelCalculations() {
     sample_grid = dp->get_sample_grid();
     dome_vertices = dp->get_dome_vertices();
 
+    screen_points = dp->get_screen_points();
+    texture_coords = dp->get_texture_coords();
 }
 
 
@@ -407,23 +408,23 @@ void render(glm::mat4 mvp) {
         }
 
 
-        for (auto element : sample_grid) {
-            current_mvp = glm::translate(mvp, element);
-            current_mvp = glm::scale(current_mvp, glm::vec3(0.01, 0.01, 0.01));
-            drawVertexArray(matrix_id, vertex_array_ids[0], current_mvp, 2 * 3, color_map["blue"]);
-        }
+//        for (auto element : sample_grid) {
+//            current_mvp = glm::translate(mvp, element);
+//            current_mvp = glm::scale(current_mvp, glm::vec3(0.01, 0.01, 0.01));
+//            drawVertexArray(matrix_id, vertex_array_ids[0], current_mvp, 2 * 3, color_map["blue"]);
+//        }
 
-        for (auto element : first_hitpoints) {
-            current_mvp = glm::translate(mvp, element);
-            current_mvp = glm::scale(current_mvp, glm::vec3(0.01, 0.01, 0.01));
-            drawVertexArray(matrix_id, vertex_array_ids[0], current_mvp, 2 * 3, color_map["green"]);
-        }
+//        for (auto element : first_hitpoints) {
+//            current_mvp = glm::translate(mvp, element);
+//            current_mvp = glm::scale(current_mvp, glm::vec3(0.01, 0.01, 0.01));
+//            drawVertexArray(matrix_id, vertex_array_ids[0], current_mvp, 2 * 3, color_map["green"]);
+//        }
 
-        for (auto element : second_hitpoints) {
-            current_mvp = glm::translate(mvp, element);
-            current_mvp = glm::scale(current_mvp, glm::vec3(0.01, 0.01, 0.01));
-            drawVertexArray(matrix_id, vertex_array_ids[0], current_mvp, 2 * 3, color_map["red"]);
-        }
+//        for (auto element : second_hitpoints) {
+//            current_mvp = glm::translate(mvp, element);
+//            current_mvp = glm::scale(current_mvp, glm::vec3(0.01, 0.01, 0.01));
+//            drawVertexArray(matrix_id, vertex_array_ids[0], current_mvp, 2 * 3, color_map["red"]);
+//        }
 
         for (auto element: far_clipping_corners) {
             current_mvp = glm::translate(mvp, element);
@@ -447,6 +448,18 @@ void render(glm::mat4 mvp) {
             current_mvp = glm::translate(mvp, element);
             current_mvp = glm::scale(current_mvp, glm::vec3(0.01, 0.01, 0.01));
             drawVertexArray(matrix_id, vertex_array_ids[0], current_mvp, 2 * 3, color_map["grey"]);
+        }
+
+        for (auto element: screen_points) {
+            current_mvp = glm::translate(mvp, element);
+            current_mvp = glm::scale(current_mvp, glm::vec3(0.01, 0.01, 0.01));
+            drawVertexArray(matrix_id, vertex_array_ids[0], current_mvp, 2 * 3, color_map["grey"]);
+        }
+
+        for (auto element : dp->corresponding_hitpoints) {
+            current_mvp = glm::translate(mvp, element);
+            current_mvp = glm::scale(current_mvp, glm::vec3(0.01, 0.01, 0.01));
+            drawVertexArray(matrix_id, vertex_array_ids[0], current_mvp, 2 * 3, color_map["green"]);
         }
 
         // Swap buffers
@@ -514,7 +527,6 @@ void setupBuffers() {
 int main() {
 
     // load config
-
     if (!loadConfig("../configs/application.json", application_config)) {
         return 0;
     }
@@ -523,10 +535,11 @@ int main() {
     }
 
     buildModel();
-
     runModelCalculations();
 
-    initializeGLContext();
+    bool mouse_enabled = application_config["options"]["mouse"].bool_value();
+    bool vsync_enabled = application_config["options"]["vsync"].bool_value();
+    initializeGLContext(mouse_enabled, vsync_enabled);
 
     // generate vertex array
     GLuint vertex_array_id;
@@ -536,7 +549,6 @@ int main() {
 
     // create buffers
     vertex_buffer_ids.push_back(createVertexBuffer(vertex_buffer_data::quad));
-
     setupBuffers();
 
     // load shaders

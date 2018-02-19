@@ -36,7 +36,6 @@ public:
                   glm::vec3 const &position, int dome_rings, int dome_ring_elements);
     ~DomeProjector();
 
-    std::vector<glm::vec3> generateRadialGrid() const;
     std::vector<glm::vec3> calculateTransformationMesh();
     void calculateDomeHitpoints(Sphere *mirror, Sphere *dome);
 
@@ -55,9 +54,15 @@ public:
     std::vector<glm::vec3> const &get_first_hits() const;
     std::vector<glm::vec3> const &get_second_hits() const;
     std::vector<glm::vec3> const &get_dome_vertices() const;
+    std::vector<glm::vec3> const &get_screen_points() const;
+    std::vector<glm::vec3> const &get_texture_coords() const;
 
     // ostream
     friend std::ostream &operator<<(std::ostream &os, const DomeProjector &projector);
+
+
+    std::vector<glm::vec3> corresponding_hitpoints;
+
 
 private:
 

@@ -6,7 +6,7 @@
 #include <string>
 #include <fstream>
 #include <sstream>
-#include <json11.hpp>
+#include <lib/json11.hpp>
 #include "DomeProjector.hpp"
 #include "Utility.hpp"
 #include "Sphere.hpp"
@@ -59,42 +59,6 @@ DomeProjector::DomeProjector(Frustum *_frustum,
 DomeProjector::~DomeProjector() {
     delete this->_frustum;
     delete this->_screen;
-}
-
-
-/**
- * generates a radial grid
- * @return
- */
-std::vector<glm::vec3> DomeProjector::generateRadialGrid() const {
-
-    float step_size =
-            ((this->_frustum->_near_clipping_corners[0].x - this->_frustum->_near_clipping_corners[1].x) / 2) /
-            _grid_rings;
-
-    // define center point
-    glm::vec3 center_point = glm::vec3(
-            this->_frustum->_near_clipping_corners[1].x + this->_frustum->_near_clipping_corners[0].x,
-            this->_frustum->_near_clipping_corners[3].y + this->_frustum->_near_clipping_corners[0].y,
-            this->_frustum->_near_clipping_corners[0].z);
-
-
-    float angle = 360.0f / _grid_ring_elements;
-
-    std::vector<glm::vec3> vertices;
-    vertices.push_back(center_point);
-
-    for (int ring_idx = 1; ring_idx < _grid_rings + 1; ++ring_idx) {
-        for (int ring_point_idx = 0; ring_point_idx < _grid_ring_elements; ++ring_point_idx) {
-            glm::quat euler_quat(glm::vec3(0.0, 0.0, glm::radians(angle * ring_point_idx)));
-            glm::vec3 coord = euler_quat * glm::vec3(ring_idx * step_size, 0.0, 0.0);
-
-            // push back the rotated point at the far clipping plaes z position
-            vertices.emplace_back(glm::vec3(coord.x, coord.y, this->_frustum->_near_clipping_corners[0].z));
-        }
-    }
-
-    return vertices;
 }
 
 
@@ -187,7 +151,6 @@ void DomeProjector::calculateDomeHitpoints(Sphere *mirror, Sphere *dome) {
     // raycast for each samplepoint
     for (int i = 0; i < this->_sample_grid.size(); ++i) {
 
-
         // todo ignore points outside of the frustum
 //        if (this->_sample_grid[i].y > _frustum->_near_clipping_corners[3].y &&
 //            this->_sample_grid[i].y < _frustum->_near_clipping_corners[0].y) {
@@ -212,9 +175,15 @@ void DomeProjector::calculateDomeHitpoints(Sphere *mirror, Sphere *dome) {
             if (dome->intersect(r2, &hpp2)) {
                 if (hpp2.second.position.y > dome->get_position().y) {
                     this->_second_hits.push_back(hpp2.second.position);
+                } else {
+                    this->_second_hits.push_back(glm::vec3(1000, 1000, 1000));
                 }
+            } else {
+                this->_second_hits.push_back(glm::vec3(1000, 1000, 1000));
             }
 
+        } else {
+            this->_second_hits.push_back(glm::vec3(1000, 1000, 1000));
         }
 
     }
@@ -235,23 +204,30 @@ std::vector<glm::vec3> DomeProjector::calculateTransformationMesh() {
 
     for (int vert_idx = 0; vert_idx < this->_dome_vertices.size(); ++vert_idx) {
         for (int hp_idx = 0; hp_idx < this->_second_hits.size(); ++hp_idx) {
-            float current_distance = glm::length(this->_dome_vertices[vert_idx] - this->_second_hits[hp_idx]);
+//            float current_distance = glm::length(this->_dome_vertices[vert_idx] - this->_second_hits[hp_idx]);
+            float current_distance = glm::length(this->_second_hits[hp_idx] - this->_dome_vertices[vert_idx]);
             if (current_distance < last_distance) {
+//                std::cout << "distance: " << current_distance << std::endl;
                 last_distance = current_distance;
                 last_hitpoint_idx = hp_idx;
             }
         }
         last_distance = std::numeric_limits<float>::max();
+        std::cout << "dome idx: " << vert_idx << " hp idx: " << last_hitpoint_idx << std::endl;
         map.insert(std::pair<int, int>(vert_idx, last_hitpoint_idx));
     }
+
+    std::vector<glm::vec3> corresponding_hitpoints;
+    for (auto pair : map) {
+        corresponding_hitpoints.push_back(this->_sample_grid[pair.first]);
+//        corresponding_hitpoints.push_back(this->_second_hits[pair.second]);
+    }
+
+    this->corresponding_hitpoints = corresponding_hitpoints;
 
     // calculate mapping
     std::vector<glm::vec3> screen_points;
     std::vector<glm::vec3> texture_points;
-
-    std::cout << "element 33" << std::endl;
-    std::cout << utility::vecstr(this->_dome_vertices[0]) << std::endl;
-    std::cout << utility::vecstr(this->_second_hits[33]) << std::endl;
 
     for (auto pair : map) {
 
@@ -259,6 +235,9 @@ std::vector<glm::vec3> DomeProjector::calculateTransformationMesh() {
 
         texture_points.push_back(this->_dome_vertices[pair.first]);
         screen_points.push_back(this->_sample_grid[pair.second]);
+
+//        texture_points.push_back(this->_dome_vertices[pair.second]);
+//        screen_points.push_back(this->_sample_grid[pair.first]);
 
     }
 
@@ -279,6 +258,7 @@ std::vector<glm::vec3> DomeProjector::calculateTransformationMesh() {
                                           -1.0f, 1.0f);
 
         screen_points_normalized.emplace_back(glm::vec3(new_x, new_y, 0.0f));
+//        screen_points_normalized.emplace_back(point);
     }
 
     // normalize texture points
@@ -352,6 +332,7 @@ void DomeProjector::updateFrustum(Frustum *new_frustum) {
     this->generateRadialGrid();
 }
 
+
 /**
  *
  * @param new_screen
@@ -359,6 +340,7 @@ void DomeProjector::updateFrustum(Frustum *new_frustum) {
 void DomeProjector::updateScreen(Screen *new_screen) {
     this->_screen = new_screen;
 }
+
 
 /**
  * recalculate the radial grid
@@ -428,6 +410,22 @@ std::vector<glm::vec3> const &DomeProjector::get_second_hits() const {
  */
 std::vector<glm::vec3> const &DomeProjector::get_dome_vertices() const {
     return this->_dome_vertices;
+}
+
+/**
+ * Returns a std::vector containing vertices of the final warping mesh
+ * @return
+ */
+std::vector<glm::vec3> const &DomeProjector::get_screen_points() const {
+    return this->_screen_points;
+}
+
+/**
+ * Returns a std::vector containing vertices of the final warping mesh
+ * @return
+ */
+std::vector<glm::vec3> const &DomeProjector::get_texture_coords() const {
+    return this->_texture_coords;
 }
 
 /**

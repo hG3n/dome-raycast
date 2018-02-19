@@ -16,12 +16,12 @@
             "h": 1080
         },
         "grid": {
-            "num_rings": 72,
-            "num_ring_elements": 72
+            "num_rings": 288,
+            "num_ring_elements": 144
         },
         "dome": {
             "num_rings": 8,
-            "num_ring_elements": 18
+            "num_ring_elements": 32
         }
     },
     "dome": {
