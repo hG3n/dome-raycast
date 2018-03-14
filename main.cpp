@@ -407,6 +407,11 @@ void render(glm::mat4 mvp) {
             mvp = glm::rotate(mvp, glm::radians(-1.0f), glm::vec3(0, 1, 0));
         }
 
+        /*
+         * for shape in scene
+         *   do render
+         */
+
 
 //        for (auto element : sample_grid) {
 //            current_mvp = glm::translate(mvp, element);
