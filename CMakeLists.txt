@@ -47,7 +47,7 @@ set(HEADER_FILES
         include/Shape.hpp
         include/Frustum.hpp
         include/DomeProjector.hpp
-        include/ColorRGB.hpp)
+        include/ColorRGB.hpp include/projector_frustum.h sources/projector_frustum.cpp)
 
 # libraries
 set(ALL_LIBS
