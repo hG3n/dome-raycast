@@ -301,7 +301,7 @@ void DomeProjector::saveTransformations() const {
     oss << this->_dome_rings << " " << this->_dome_ring_elements << " " << this->_screen_points.size() << std::endl;
 
     std::ofstream out_stream;
-    out_stream.open("out/screen_points.txt");
+    out_stream.open("../../glwarp/new_screen_points.txt");
     out_stream << oss.str();
     out_stream.close();
 
@@ -315,7 +315,7 @@ void DomeProjector::saveTransformations() const {
 
     oss << this->_dome_rings << " " << this->_dome_ring_elements << " " << this->_screen_points.size() << std::endl;
 
-    out_stream.open("out/texture_coords.txt");
+    out_stream.open("../../glwarp/new_texture_coords.txt");
     out_stream << oss.str();
     out_stream.close();
 

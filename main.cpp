@@ -34,8 +34,7 @@ Sphere *dome;
 int SCREEN_WIDTH = 1280;
 int SCREEN_HEIGHT = 800;
 float FOV = 90.0f;
-
-bool SHOW_MOUSE = false;
+bool SHOW_MOUSE = true;
 
 std::vector<GLuint> vertex_buffer_ids;
 std::vector<GLuint> vertex_array_ids;
