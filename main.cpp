@@ -21,6 +21,7 @@
 #include "ShaderUtil.hpp"
 #include "DomeProjector.hpp"
 #include "vertex_buffer_data.hpp"
+#include "projector_frustum.h"
 
 // gl globals
 GLFWwindow *window;
@@ -460,11 +461,11 @@ void render(glm::mat4 mvp) {
             drawVertexArray(matrix_id, vertex_array_ids[0], current_mvp, 2 * 3, color_map["grey"]);
         }
 
-        for (auto element : dp->corresponding_hitpoints) {
-            current_mvp = glm::translate(mvp, element);
-            current_mvp = glm::scale(current_mvp, glm::vec3(0.01, 0.01, 0.01));
-            drawVertexArray(matrix_id, vertex_array_ids[0], current_mvp, 2 * 3, color_map["green"]);
-        }
+//        for (auto element : dp->corresponding_hitpoints) {
+//            current_mvp = glm::translate(mvp, element);
+//            current_mvp = glm::scale(current_mvp, glm::vec3(0.01, 0.01, 0.01));
+//            drawVertexArray(matrix_id, vertex_array_ids[0], current_mvp, 2 * 3, color_map["green"]);
+//        }
 
         // Swap buffers
         glfwSwapBuffers(window);
@@ -529,6 +530,11 @@ void setupBuffers() {
  * @return
  */
 int main() {
+
+
+    ProjectorFrustum f(16/9, 90, 0.1, 1.0, glm::vec3(0.0f,0.0f,0.0f), glm::vec3(0.0f,0.0f,0.0f));
+
+    return 0;
 
     // load config
     if (!loadConfig("../configs/application.json", application_config)) {

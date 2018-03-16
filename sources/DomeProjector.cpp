@@ -213,7 +213,7 @@ std::vector<glm::vec3> DomeProjector::calculateTransformationMesh() {
             }
         }
         last_distance = std::numeric_limits<float>::max();
-        std::cout << "dome idx: " << vert_idx << " hp idx: " << last_hitpoint_idx << std::endl;
+//        std::cout << "dome idx: " << vert_idx << " hp idx: " << last_hitpoint_idx << std::endl;
         map.insert(std::pair<int, int>(vert_idx, last_hitpoint_idx));
     }
 
