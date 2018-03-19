@@ -2,61 +2,104 @@
 // Created by everest on 14.03.18.  //
 
 
+#include <glm/gtc/matrix_transform.hpp>
 #include "projector_frustum.h"
 #include "Utility.hpp"
 
-/**
- * Default c'tor
- */
 ProjectorFrustum::ProjectorFrustum()
         : _aspect_ratio(1)
         , _fov(90.0f)
         , _position(glm::vec3())
         , _rotation(glm::vec3())
         , _near(0.1f)
-        , _far(1.0f)
-{}
+        , _far(1.0f) {}
 
 
-/**
- * Custom c'tor
- * @param _aspect_ratio
- * @param _fov
- * @param _near
- * @param _far
- * @param _position
- * @param _rotation
- */
-ProjectorFrustum::ProjectorFrustum(float _aspect_ratio, float _fov, float _near, float _far, const glm::vec3 &_position,
-                                   const glm::vec3 &_rotation)
+ProjectorFrustum::ProjectorFrustum(float _aspect_ratio, float _fov, float _near, float _far)
         : _aspect_ratio(_aspect_ratio)
         , _fov(_fov)
         , _near(_near)
         , _far(_far)
-        , _position(_position)
-        , _rotation(_rotation)
-{
+        , _eye(glm::vec3(0.0f, 0.0, 1.0f))
+        , _position(glm::vec3())
+        , _rotation(glm::vec3()) {
 
-    // define forward vector
-    glm::vec3 eye = _position;
-    eye.z = -_near;
+    // create foward vector
+    _eye.z = -_near;
 
     // calculate top point
-    glm::quat euler(glm::vec3(glm::radians(_fov/2), 0.0f,0.0f));
-    glm::vec3 top_point = euler *eye;
+    glm::quat euler({glm::radians(_fov / 2), 0.0f, 0.0f});
+    glm::vec3 near_top_point = euler * _eye;
 
-    float width = top_point.y * 2;
-    glm::vec3 tl(-(width * _aspect_ratio / 2) , top_point.y, top_point.z);
-    glm::vec3 bl(-(width * _aspect_ratio / 2) , -top_point.y, top_point.z);
-    glm::vec3 tr(width * _aspect_ratio / 2 , top_point.y, top_point.z);
-    glm::vec3 br(width * _aspect_ratio / 2 , -top_point.y, top_point.z);
+    float width = near_top_point.y * 2.0f;
+    glm::vec3 near_tl(-(width * _aspect_ratio / 2.0f), near_top_point.y, near_top_point.z);
+    glm::vec3 near_bl(-(width * _aspect_ratio / 2.0f), -near_top_point.y, near_top_point.z);
+    glm::vec3 near_tr(width * _aspect_ratio / 2.0f, near_top_point.y, near_top_point.z);
+    glm::vec3 near_br(width * _aspect_ratio / 2.0f, -near_top_point.y, near_top_point.z);
 
-    std::cout << "tl - " << utility::vecstr(tl) << std::endl;
-    std::cout << "bl - " << utility::vecstr(bl) << std::endl;
-    std::cout << "tr - " << utility::vecstr(tr) << std::endl;
-    std::cout << "br - " << utility::vecstr(br) << std::endl;
+    _near_corners[TL] = near_tl;
+    _near_corners[TR] = near_tr;
+    _near_corners[BR] = near_br;
+    _near_corners[BL] = near_bl;
+
+    _eye.z = _far;
+
+    // calculate top point
+    glm::quat far_euler({glm::radians(_fov / 2.0f), 0.0f, 0.0f});
+    glm::vec3 far_top_point = euler * _eye;
+
+    width = far_top_point.y * 2.0f;
+    glm::vec3 far_tl(-(width * _aspect_ratio / 2.0f), far_top_point.y, far_top_point.z);
+    glm::vec3 far_bl(-(width * _aspect_ratio / 2.0f), -far_top_point.y, far_top_point.z);
+    glm::vec3 far_tr(width * _aspect_ratio / 2.0f, far_top_point.y, far_top_point.z);
+    glm::vec3 far_br(width * _aspect_ratio / 2.0f, -far_top_point.y, far_top_point.z);
+
+    _far_corners[TL] = near_tl;
+    _far_corners[TR] = near_tr;
+    _far_corners[BR] = near_br;
+    _far_corners[BL] = near_bl;
+}
 
 
+void ProjectorFrustum::translateTo(glm::vec3 const &position) {
+    glm::mat4 translate = glm::translate(glm::mat4(1.0f), position);
+    _position = glm::vec3(translate * glm::vec4(_position, 1.0f));
+
+    _eye = glm::vec3(translate * glm::vec4(_eye, 1.0f));
+
+    // translate each near corner
+    for (auto &corner: _near_corners) {
+        corner.second = glm::vec3(translate * glm::vec4(corner.second, 1.0f));
+    }
+
+    for (auto &corner: _far_corners) {
+        corner.second = glm::vec3(translate * glm::vec4(corner.second, 1.0f));
+    }
+}
 
 
+void ProjectorFrustum::rotate(float angle, glm::vec3 const &axis) {
+
+    float rad_angle = glm::radians(angle);
+    glm::mat4 rotation = glm::rotate(glm::mat4(1.0f), rad_angle, axis);
+
+    _eye = glm::vec3(rotation * glm::vec4(_eye, 1.0f));
+
+    for (auto &corner: _near_corners) {
+        corner.second = glm::vec3(rotation * glm::vec4(corner.second, 1.0f));
+    }
+
+    for (auto &corner: _far_corners) {
+        corner.second = glm::vec3(rotation * glm::vec4(corner.second, 1.0f));
+    }
+}
+
+
+std::map<ProjectorFrustum::Corner, glm::vec3> const& ProjectorFrustum::getNearCorners() const {
+    return _near_corners;
+}
+
+
+std::map<ProjectorFrustum::Corner, glm::vec3> const& ProjectorFrustum::getFarCorners() const {
+    return _far_corners;
 }
