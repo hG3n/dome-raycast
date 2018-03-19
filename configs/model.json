@@ -20,7 +20,7 @@
             "num_ring_elements": 288
         },
         "dome": {
-            "num_rings": 16,
+            "num_rings": 32,
             "num_ring_elements": 64
         }
     },
