@@ -14,6 +14,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <sstream>
+#include <Utility.hpp>
 
 #include "lib/json11.hpp"
 
@@ -68,7 +69,7 @@ std::map<std::string, json11::Json> application_config;
  * @param vec_obj
  * @return
  */
-glm::vec3 jsonArray2Vec3(json11::Json const& vec_obj) {
+glm::vec3 jsonArray2Vec3(json11::Json const &vec_obj) {
     std::vector<json11::Json> e = vec_obj.array_items();
     return glm::vec3(e[0].number_value(), e[1].number_value(), e[2].number_value());
 }
@@ -532,9 +533,23 @@ void setupBuffers() {
 int main() {
 
 
-    ProjectorFrustum f(16/9, 90, 0.1, 1.0, glm::vec3(0.0f,0.0f,0.0f), glm::vec3(0.0f,0.0f,0.0f));
+    ProjectorFrustum f(16.0f / 9.0f, 90, 1.0f, 2.0f);
+    f.translateTo({0.0f, 2.0f, 0.0f});
 
-    return 0;
+    std::cout << "translation" << std::endl;
+    auto near = f.getNearCorners();
+    for(auto c: near) {
+        std::cout << utility::vecstr(c.second) << std::endl;
+    }
+
+    std::cout << "rotation" << std::endl;
+    f.rotate(90, {0.0f, 1.0f, 0.0f});
+    near = f.getNearCorners();
+    for(auto c: near) {
+        std::cout << utility::vecstr(c.second) << std::endl;
+    }
+
+//    return 0;
 
     // load config
     if (!loadConfig("../configs/application.json", application_config)) {
