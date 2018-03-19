@@ -32,24 +32,40 @@ class DomeProjector {
 
 public:
 
+    /**
+     * Creates a dome projector object alongside the specified sample grid
+     * @param _frustum
+     * @param _screen
+     * @param _grid_rings
+     * @param _grid_ring_elements
+     */
     DomeProjector(Frustum *_frustum, Screen *_screen, int _grid_rings, int _grid_ring_elements,
                   glm::vec3 const &position, int dome_rings, int dome_ring_elements);
+
+    /**
+     * Destructor
+     */
     ~DomeProjector();
 
+    /**
+     * calculate the transformation mesh
+     * @return std::vector<glm::vec3> transformation mesh
+     */
     std::vector<glm::vec3> calculateTransformationMesh();
+
+    /**
+     * calculates hitpoints in the dome
+     * @param mirror
+     * @param dome
+     */
     void calculateDomeHitpoints(Sphere *mirror, Sphere *dome);
 
+    /**
+     * saves transformations to text file with maybe some time the current timestamp
+     */
     void saveTransformations() const;
 
-    // setter
-    void updateFrustum(Frustum *);
-    void updateScreen(Screen *);
-    void updateSampleGrid(int, int);
-    void updatePosition(glm::vec3 const &new_position);
-
     // getter
-    unsigned int getNumSamplepoints() const;
-    unsigned int getTotalHitCount() const;
     std::vector<glm::vec3> const &get_sample_grid() const;
     std::vector<glm::vec3> const &get_first_hits() const;
     std::vector<glm::vec3> const &get_second_hits() const;
@@ -61,12 +77,17 @@ public:
     friend std::ostream &operator<<(std::ostream &os, const DomeProjector &projector);
 
 
-    std::vector<glm::vec3> corresponding_hitpoints;
-
-
 private:
 
+    /**
+     * generates a radial grid
+     * @return
+     */
     void generateRadialGrid();
+
+    /**
+     * Generates the vertices of a half sphere by using the grid specified settings
+     */
     void generateDomeVertices();
 
     // members
@@ -89,7 +110,6 @@ private:
 
     std::vector<glm::vec3> _screen_points;
     std::vector<glm::vec3> _texture_coords;
-
 };
 
 
