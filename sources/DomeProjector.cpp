@@ -12,14 +12,12 @@
 #include "Sphere.hpp"
 
 DomeProjector::DomeProjector(Frustum *_frustum,
-                             Screen *_screen,
                              int _grid_rings,
                              int _grid_ring_elements,
                              glm::vec3 const &position,
                              int dome_rings,
                              int dome_ring_elements)
         : _frustum(_frustum)
-        , _screen(_screen)
         , _grid_rings(_grid_rings)
         , _grid_ring_elements(_grid_ring_elements)
         , _position(position)
@@ -32,10 +30,14 @@ DomeProjector::DomeProjector(Frustum *_frustum,
     glm::mat4 scale_mat(1.0f);
     scale_mat = glm::scale(scale_mat, glm::vec3(1.6f, 1.6f, 1.6f));
 
-    for (int j = 0; j < this->_dome_vertices.size(); ++j) {
-        glm::vec4 res = scale_mat * glm::vec4(this->_dome_vertices[j], 1.0f);
-        this->_dome_vertices[j] = glm::vec3(res);
+    for(auto &vert: _dome_vertices) {
+        vert = scale_mat * glm::vec4(vert, 1.0f);
     }
+
+//    for (int j = 0; j < this->_dome_vertices.size(); ++j) {
+//        glm::vec4 res = scale_mat * glm::vec4(this->_dome_vertices[j], 1.0f);
+//        this->_dome_vertices[j] = glm::vec3(res);
+//    }
 
     // translate sample grid to projector position
     // ignore the first element which is already in the frustums center
@@ -48,9 +50,7 @@ DomeProjector::DomeProjector(Frustum *_frustum,
 
 DomeProjector::~DomeProjector() {
     delete this->_frustum;
-    delete this->_screen;
 }
-
 
 std::vector<glm::vec3> DomeProjector::calculateTransformationMesh() {
 
@@ -62,41 +62,23 @@ std::vector<glm::vec3> DomeProjector::calculateTransformationMesh() {
 
     for (int vert_idx = 0; vert_idx < this->_dome_vertices.size(); ++vert_idx) {
         for (int hp_idx = 0; hp_idx < this->_second_hits.size(); ++hp_idx) {
-//            float current_distance = glm::length(this->_dome_vertices[vert_idx] - this->_second_hits[hp_idx]);
             float current_distance = glm::length(this->_second_hits[hp_idx] - this->_dome_vertices[vert_idx]);
             if (current_distance < last_distance) {
-//                std::cout << "distance: " << current_distance << std::endl;
                 last_distance = current_distance;
                 last_hitpoint_idx = hp_idx;
             }
         }
         last_distance = std::numeric_limits<float>::max();
-//        std::cout << "dome idx: " << vert_idx << " hp idx: " << last_hitpoint_idx << std::endl;
         map.insert(std::pair<int, int>(vert_idx, last_hitpoint_idx));
     }
-
-    std::vector<glm::vec3> corresponding_hitpoints;
-    for (auto pair : map) {
-        corresponding_hitpoints.push_back(this->_sample_grid[pair.first]);
-//        corresponding_hitpoints.push_back(this->_second_hits[pair.second]);
-    }
-
-    this->corresponding_hitpoints = corresponding_hitpoints;
 
     // calculate mapping
     std::vector<glm::vec3> screen_points;
     std::vector<glm::vec3> texture_points;
-
     for (auto pair : map) {
-
         std::cout << "dome: " << pair.first << " texture " << pair.second << std::endl;
-
         texture_points.push_back(this->_dome_vertices[pair.first]);
         screen_points.push_back(this->_sample_grid[pair.second]);
-
-//        texture_points.push_back(this->_dome_vertices[pair.second]);
-//        screen_points.push_back(this->_sample_grid[pair.first]);
-
     }
 
     // normalize screen list
@@ -116,7 +98,6 @@ std::vector<glm::vec3> DomeProjector::calculateTransformationMesh() {
                                           -1.0f, 1.0f);
 
         screen_points_normalized.emplace_back(glm::vec3(new_x, new_y, 0.0f));
-//        screen_points_normalized.emplace_back(point);
     }
 
     // normalize texture points
@@ -143,7 +124,6 @@ std::vector<glm::vec3> DomeProjector::calculateTransformationMesh() {
 
     return std::vector<glm::vec3>();
 }
-
 
 void DomeProjector::calculateDomeHitpoints(Sphere *mirror, Sphere *dome) {
 
@@ -184,20 +164,19 @@ void DomeProjector::calculateDomeHitpoints(Sphere *mirror, Sphere *dome) {
                 if (hpp2.second.position.y > dome->get_position().y) {
                     this->_second_hits.push_back(hpp2.second.position);
                 } else {
-                    this->_second_hits.push_back(glm::vec3(1000, 1000, 1000));
+                    this->_second_hits.push_back({1000, 1000, 1000});
                 }
             } else {
-                this->_second_hits.push_back(glm::vec3(1000, 1000, 1000));
+                this->_second_hits.push_back({1000, 1000, 1000});
             }
 
         } else {
-            this->_second_hits.push_back(glm::vec3(1000, 1000, 1000));
+            this->_second_hits.push_back({1000, 1000, 1000});
         }
 
     }
 
 }
-
 
 void DomeProjector::generateRadialGrid() {
 
@@ -260,42 +239,6 @@ void DomeProjector::generateDomeVertices() {
     this->_dome_vertices = vertices;
 }
 
-void DomeProjector::saveTransformations() const {
-
-    std::vector<glm::vec3> screen_cpy(this->_screen_points);
-    std::stringstream oss;
-    for (auto point: screen_cpy) {
-        oss << point.x << " " << point.y << " " << point.z << std::endl;
-    }
-
-    oss << this->_dome_rings << " " << this->_dome_ring_elements << " " << this->_screen_points.size() << std::endl;
-
-    std::ofstream out_stream;
-    out_stream.open("../../glwarp/new_screen_points.txt");
-    out_stream << oss.str();
-    out_stream.close();
-
-    // clear the stringstream by filling it with an empty string
-    oss.str(std::string());
-
-    std::vector<glm::vec3> texture_cpy(this->_texture_coords);
-    for (auto point: texture_cpy) {
-        oss << point.x << " " << point.y << " " << point.z << std::endl;
-    }
-
-    oss << this->_dome_rings << " " << this->_dome_ring_elements << " " << this->_screen_points.size() << std::endl;
-
-    out_stream.open("../../glwarp/new_texture_coords.txt");
-    out_stream << oss.str();
-    out_stream.close();
-
-    std::cout << "successfully saved texture and screen coords in 'out/'" << std::endl;
-}
-
-// ---------------------------------------------------------------------------
-// GETTER
-// ---------------------------------------------------------------------------
-
 /**
  * Returns a std::vec containing the radial sample grid.
  * @return
@@ -352,7 +295,6 @@ std::vector<glm::vec3> const &DomeProjector::get_texture_coords() const {
  */
 std::ostream &operator<<(std::ostream &os, const DomeProjector &projector) {
     os << "Dome Projector:" << "\n"
-       << "  screen: <width: " << projector._screen->width << " height: " << projector._screen->height << ">\n"
        << "  position: [" << projector._position.x << ", " << projector._position.y << ", " << projector._position.z
        << "]\n"
        << "  grid_rings: " << projector._grid_rings << "\n"

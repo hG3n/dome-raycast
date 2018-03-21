@@ -33,7 +33,9 @@ set(SOURCE_FILES
         sources/Shape.cpp
         sources/Frustum.cpp
         sources/DomeProjector.cpp
-        sources/ColorRGB.cpp)
+        sources/ColorRGB.cpp
+        sources/file_writer.cpp
+        sources/projector_frustum.cpp)
 
 # set header files
 set(HEADER_FILES
@@ -47,7 +49,9 @@ set(HEADER_FILES
         include/Shape.hpp
         include/Frustum.hpp
         include/DomeProjector.hpp
-        include/ColorRGB.hpp include/projector_frustum.h sources/projector_frustum.cpp)
+        include/ColorRGB.hpp
+        include/projector_frustum.h
+        include/file_writer.hpp include/path.hpp sources/path.cpp)
 
 # libraries
 set(ALL_LIBS

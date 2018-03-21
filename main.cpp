@@ -23,6 +23,8 @@
 #include "DomeProjector.hpp"
 #include "vertex_buffer_data.hpp"
 #include "projector_frustum.h"
+#include "file_writer.hpp"
+#include "path.hpp"
 
 // gl globals
 GLFWwindow *window;
@@ -32,11 +34,11 @@ Screen *screen;
 Sphere *mirror;
 Sphere *dome;
 
+Path output_path;
+FileWriter file_writer;
 
 int SCREEN_WIDTH = 1280;
 int SCREEN_HEIGHT = 800;
-float FOV = 90.0f;
-bool SHOW_MOUSE = true;
 
 std::vector<GLuint> vertex_buffer_ids;
 std::vector<GLuint> vertex_array_ids;
@@ -55,14 +57,10 @@ std::vector<glm::vec3> dome_vertices;
 std::vector<glm::vec3> screen_points;
 std::vector<glm::vec3> texture_coords;
 
-// raycast globals
-int SAMPLE_RINGS = 72;
-int SAMPLE_RING_POINTS = 72;
-int DOME_RINGS = 18;
-int DOME_RING_ELEMENTS = 36;
-
+// configs
 std::map<std::string, json11::Json> model_config;
 std::map<std::string, json11::Json> application_config;
+
 
 /**
  * extract json object from vector
@@ -73,6 +71,7 @@ glm::vec3 jsonArray2Vec3(json11::Json const &vec_obj) {
     std::vector<json11::Json> e = vec_obj.array_items();
     return glm::vec3(e[0].number_value(), e[1].number_value(), e[2].number_value());
 }
+
 
 /**
  * load json config
@@ -107,6 +106,7 @@ bool loadConfig(std::string const &file_name, std::map<std::string, json11::Json
 
     return true;
 }
+
 
 /**
  * create a vertex buffer
@@ -164,7 +164,7 @@ GLuint createSolidColorBuffer(int size, float r, float g, float b) {
  * initialize open gl context by creating a window and setting up general behaviour
  * @return
  */
-int initializeGLContext(bool show_mouse, bool with_vsync) {
+int initializeGLContext(json11::Json const &application_config) {
 
     // Initialise GLFW
     if (!glfwInit()) {
@@ -185,7 +185,9 @@ int initializeGLContext(bool show_mouse, bool with_vsync) {
     int height = mode->height;
 
     // Open a window and create its OpenGL context
-    window = glfwCreateWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "DomeRaycast", nullptr, nullptr);
+    int screen_width = application_config["camera"]["screen"]["w"].int_value();
+    int screen_height = application_config["camera"]["screen"]["h"].int_value();
+    window = glfwCreateWindow(screen_width, screen_height, "DomeRaycast", nullptr, nullptr);
     if (window == nullptr) {
         fprintf(stderr,
                 "Failed to open GLFW window.\n");
@@ -207,8 +209,13 @@ int initializeGLContext(bool show_mouse, bool with_vsync) {
     // ensure key input capturing is possible
 //    glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
 
-    // Hide the mouse and enable unlimited mouvement
-    if (!show_mouse)
+    glfwSwapInterval(0);
+    if (application_config["options"]["vsync"].bool_value()) {
+        glfwSwapInterval(1);
+    }
+
+    // Hide the mouse and enable unlimited movement
+    if (!application_config["options"]["mouse"].bool_value())
         glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     // further settings
@@ -238,6 +245,10 @@ void cleanupGL() {
 
 }
 
+
+/**
+ * build model
+ */
 void buildModel() {
 
     glm::vec3 mirror_position = jsonArray2Vec3(model_config["mirror"]["position"]);
@@ -253,9 +264,10 @@ void buildModel() {
     float fov = (float) model_config["projector"]["fov"].number_value();
     int screen_width = (int) model_config["projector"]["screen"]["w"].number_value();
     int screen_height = (int) model_config["projector"]["screen"]["h"].number_value();
+    float aspect_ratio = float(screen_width) / float(screen_height);
 
     glm::mat4 projector_projection = glm::perspective(glm::radians(fov),
-                                                      float(screen_width) / float(screen_height),
+                                                      aspect_ratio,
                                                       0.1f,
                                                       10.0f);
 
@@ -268,11 +280,10 @@ void buildModel() {
     int dome_rings = (int) model_config["projector"]["dome"]["num_rings"].number_value();
     int dome_ring_elements = (int) model_config["projector"]["dome"]["num_ring_elements"].number_value();
 
-    // build the dome projector
-    screen = new Screen(screen_width, screen_height);
+    ProjectorFrustum f(aspect_ratio, fov, 1.0f, 2.0f);
+
     frustum = new Frustum(projector_projection, projector_world_pos, true);
     dp = new DomeProjector(frustum,
-                           screen,
                            grid_rings,
                            grid_ring_elements,
                            projector_world_pos,
@@ -355,7 +366,8 @@ drawVertexArray(GLuint matrix_id, GLuint vertex_buffer_id, glm::mat4 mvp, int nu
 void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods) {
 
     if (key == GLFW_KEY_S && action == GLFW_RELEASE) {
-        dp->saveTransformations();
+        file_writer.writeVec3List(texture_coords, "texture_coords.txt");
+        file_writer.writeVec3List(screen_points, "mesh.txt");
     } else if (key == GLFW_KEY_R && action == GLFW_RELEASE) {
         if (loadConfig("../configs/model.json", model_config)) {
             buildModel();
@@ -481,6 +493,10 @@ void render(glm::mat4 mvp) {
     }
 }
 
+
+/**
+ * setup buffers
+ */
 void setupBuffers() {
 
     GLuint colorbuffer_blue;
@@ -538,14 +554,14 @@ int main() {
 
     std::cout << "translation" << std::endl;
     auto near = f.getNearCorners();
-    for(auto c: near) {
+    for (auto c: near) {
         std::cout << utility::vecstr(c.second) << std::endl;
     }
 
     std::cout << "rotation" << std::endl;
     f.rotate(90, {0.0f, 1.0f, 0.0f});
     near = f.getNearCorners();
-    for(auto c: near) {
+    for (auto c: near) {
         std::cout << utility::vecstr(c.second) << std::endl;
     }
 
@@ -562,9 +578,12 @@ int main() {
     buildModel();
     runModelCalculations();
 
+    output_path = Path({"..", "..", "glwarp"});
+    file_writer.setPath(output_path);
+
     bool mouse_enabled = application_config["options"]["mouse"].bool_value();
     bool vsync_enabled = application_config["options"]["vsync"].bool_value();
-    initializeGLContext(mouse_enabled, vsync_enabled);
+    initializeGLContext(application_config);
 
     // generate vertex array
     GLuint vertex_array_id;

@@ -13,6 +13,7 @@
 
 #include <glm/glm.hpp>
 
+#include "projector_frustum.h"
 #include "Frustum.hpp"
 #include "Sphere.hpp"
 
@@ -39,7 +40,7 @@ public:
      * @param _grid_rings
      * @param _grid_ring_elements
      */
-    DomeProjector(Frustum *_frustum, Screen *_screen, int _grid_rings, int _grid_ring_elements,
+    DomeProjector(Frustum *_frustum, int _grid_rings, int _grid_ring_elements,
                   glm::vec3 const &position, int dome_rings, int dome_ring_elements);
 
     /**
@@ -60,11 +61,6 @@ public:
      */
     void calculateDomeHitpoints(Sphere *mirror, Sphere *dome);
 
-    /**
-     * saves transformations to text file with maybe some time the current timestamp
-     */
-    void saveTransformations() const;
-
     // getter
     std::vector<glm::vec3> const &get_sample_grid() const;
     std::vector<glm::vec3> const &get_first_hits() const;
@@ -75,7 +71,6 @@ public:
 
     // ostream
     friend std::ostream &operator<<(std::ostream &os, const DomeProjector &projector);
-
 
 private:
 
@@ -92,7 +87,7 @@ private:
 
     // members
     Frustum *_frustum;
-    Screen *_screen;
+    ProjectorFrustum __frustum;
 
     glm::vec3 _position;
 
