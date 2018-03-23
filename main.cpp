@@ -26,20 +26,21 @@
 #include "file_writer.hpp"
 #include "path.hpp"
 
+typedef FileWriter writer;
 // gl globals
 GLFWwindow *window;
 DomeProjector *dp;
-Frustum *frustum;
+//Frustum *frustum;
+ProjectorFrustum *frustum;
 Screen *screen;
 Sphere *mirror;
 Sphere *dome;
 
+// ouput
 Path output_path;
-FileWriter file_writer;
+writer file_writer;
 
-int SCREEN_WIDTH = 1280;
-int SCREEN_HEIGHT = 800;
-
+// gl
 std::vector<GLuint> vertex_buffer_ids;
 std::vector<GLuint> vertex_array_ids;
 std::vector<GLuint> shader_program_ids;
@@ -56,6 +57,8 @@ std::vector<glm::vec3> origin;
 std::vector<glm::vec3> dome_vertices;
 std::vector<glm::vec3> screen_points;
 std::vector<glm::vec3> texture_coords;
+std::vector<glm::vec3> debug;
+
 
 // configs
 std::map<std::string, json11::Json> model_config;
@@ -251,26 +254,20 @@ void cleanupGL() {
  */
 void buildModel() {
 
-    glm::vec3 mirror_position = jsonArray2Vec3(model_config["mirror"]["position"]);
-    glm::vec3 dome_position = jsonArray2Vec3(model_config["dome"]["position"]);
-
-    float mirror_radius = (float) model_config["mirror"]["radius"].number_value();
-    float dome_radius = (float) model_config["dome"]["radius"].number_value();
-
     // create mirror & dome
+    glm::vec3 mirror_position = jsonArray2Vec3(model_config["mirror"]["position"]);
+    float mirror_radius = (float) model_config["mirror"]["radius"].number_value();
     mirror = new Sphere(mirror_radius, mirror_position);
+
+    glm::vec3 dome_position = jsonArray2Vec3(model_config["dome"]["position"]);
+    float dome_radius = (float) model_config["dome"]["radius"].number_value();
     dome = new Sphere(dome_radius, dome_position);
 
     float fov = (float) model_config["projector"]["fov"].number_value();
     int screen_width = (int) model_config["projector"]["screen"]["w"].number_value();
     int screen_height = (int) model_config["projector"]["screen"]["h"].number_value();
     float aspect_ratio = float(screen_width) / float(screen_height);
-
-    glm::mat4 projector_projection = glm::perspective(glm::radians(fov),
-                                                      aspect_ratio,
-                                                      0.1f,
-                                                      10.0f);
-
+    frustum = new ProjectorFrustum(aspect_ratio, fov, 1.0f, 1.5f);
 
     // view mat
     glm::vec3 projector_world_pos = jsonArray2Vec3(model_config["projector"]["position"]);
@@ -280,16 +277,12 @@ void buildModel() {
     int dome_rings = (int) model_config["projector"]["dome"]["num_rings"].number_value();
     int dome_ring_elements = (int) model_config["projector"]["dome"]["num_ring_elements"].number_value();
 
-    ProjectorFrustum f(aspect_ratio, fov, 1.0f, 2.0f);
-
-    frustum = new Frustum(projector_projection, projector_world_pos, true);
     dp = new DomeProjector(frustum,
                            grid_rings,
                            grid_ring_elements,
                            projector_world_pos,
                            dome_rings,
                            dome_ring_elements);
-
 }
 
 
@@ -300,8 +293,19 @@ void runModelCalculations() {
     dp->calculateDomeHitpoints(mirror, dome);
     dp->calculateTransformationMesh();
 
-    far_clipping_corners = frustum->_near_clipping_corners;
-    near_clipping_corners = frustum->_far_clipping_corners;
+    std::cout << "near clipping corners" << std::endl;
+    near_clipping_corners.clear();
+    for(auto c : dp->__frustum->getNearCorners()) {
+        near_clipping_corners.push_back(c.second);
+        std::cout << utility::vecstr(c.second) << std::endl;
+    }
+
+    std::cout << "far clipping corners" << std::endl;
+    far_clipping_corners.clear();
+    for(auto c : dp->__frustum->getFarCorners()) {
+        far_clipping_corners.push_back(c.second);
+        std::cout << utility::vecstr(c.second) << std::endl;
+    }
 
     first_hitpoints = dp->get_first_hits();
     second_hitpoints = dp->get_second_hits();
@@ -426,28 +430,28 @@ void render(glm::mat4 mvp) {
          */
 
 
-//        for (auto element : sample_grid) {
-//            current_mvp = glm::translate(mvp, element);
-//            current_mvp = glm::scale(current_mvp, glm::vec3(0.01, 0.01, 0.01));
-//            drawVertexArray(matrix_id, vertex_array_ids[0], current_mvp, 2 * 3, color_map["blue"]);
-//        }
+        for (auto element : sample_grid) {
+            current_mvp = glm::translate(mvp, element);
+            current_mvp = glm::scale(current_mvp, glm::vec3(0.01, 0.01, 0.01));
+            drawVertexArray(matrix_id, vertex_array_ids[0], current_mvp, 2 * 3, color_map["blue"]);
+        }
 
-//        for (auto element : first_hitpoints) {
-//            current_mvp = glm::translate(mvp, element);
-//            current_mvp = glm::scale(current_mvp, glm::vec3(0.01, 0.01, 0.01));
-//            drawVertexArray(matrix_id, vertex_array_ids[0], current_mvp, 2 * 3, color_map["green"]);
-//        }
+        for (auto element : first_hitpoints) {
+            current_mvp = glm::translate(mvp, element);
+            current_mvp = glm::scale(current_mvp, glm::vec3(0.01, 0.01, 0.01));
+            drawVertexArray(matrix_id, vertex_array_ids[0], current_mvp, 2 * 3, color_map["green"]);
+        }
 
-//        for (auto element : second_hitpoints) {
-//            current_mvp = glm::translate(mvp, element);
-//            current_mvp = glm::scale(current_mvp, glm::vec3(0.01, 0.01, 0.01));
-//            drawVertexArray(matrix_id, vertex_array_ids[0], current_mvp, 2 * 3, color_map["red"]);
-//        }
+        for (auto element : second_hitpoints) {
+            current_mvp = glm::translate(mvp, element);
+            current_mvp = glm::scale(current_mvp, glm::vec3(0.01, 0.01, 0.01));
+            drawVertexArray(matrix_id, vertex_array_ids[0], current_mvp, 2 * 3, color_map["red"]);
+        }
 
         for (auto element: far_clipping_corners) {
             current_mvp = glm::translate(mvp, element);
             current_mvp = glm::scale(current_mvp, glm::vec3(0.01, 0.01, 0.01));
-            drawVertexArray(matrix_id, vertex_array_ids[0], current_mvp, 2 * 3, color_map["yellow"]);
+            drawVertexArray(matrix_id, vertex_array_ids[0], current_mvp, 2 * 3, color_map["blue"]);
         }
 
         for (auto element: near_clipping_corners) {
@@ -474,11 +478,11 @@ void render(glm::mat4 mvp) {
             drawVertexArray(matrix_id, vertex_array_ids[0], current_mvp, 2 * 3, color_map["grey"]);
         }
 
-//        for (auto element : dp->corresponding_hitpoints) {
-//            current_mvp = glm::translate(mvp, element);
-//            current_mvp = glm::scale(current_mvp, glm::vec3(0.01, 0.01, 0.01));
-//            drawVertexArray(matrix_id, vertex_array_ids[0], current_mvp, 2 * 3, color_map["green"]);
-//        }
+        for (auto element : dp->debug) {
+            current_mvp = glm::translate(mvp, element);
+            current_mvp = glm::scale(current_mvp, glm::vec3(0.01, 0.01, 0.01));
+            drawVertexArray(matrix_id, vertex_array_ids[0], current_mvp, 2 * 3, color_map["blue"]);
+        }
 
         // Swap buffers
         glfwSwapBuffers(window);
@@ -548,25 +552,6 @@ void setupBuffers() {
  */
 int main() {
 
-
-    ProjectorFrustum f(16.0f / 9.0f, 90, 1.0f, 2.0f);
-    f.translateTo({0.0f, 2.0f, 0.0f});
-
-    std::cout << "translation" << std::endl;
-    auto near = f.getNearCorners();
-    for (auto c: near) {
-        std::cout << utility::vecstr(c.second) << std::endl;
-    }
-
-    std::cout << "rotation" << std::endl;
-    f.rotate(90, {0.0f, 1.0f, 0.0f});
-    near = f.getNearCorners();
-    for (auto c: near) {
-        std::cout << utility::vecstr(c.second) << std::endl;
-    }
-
-//    return 0;
-
     // load config
     if (!loadConfig("../configs/application.json", application_config)) {
         return 0;
@@ -578,7 +563,7 @@ int main() {
     buildModel();
     runModelCalculations();
 
-    output_path = Path({"..", "..", "glwarp"});
+    output_path = Path({"..", "..", "glwarp-nocapture"});
     file_writer.setPath(output_path);
 
     bool mouse_enabled = application_config["options"]["mouse"].bool_value();
