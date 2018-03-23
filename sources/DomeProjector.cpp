@@ -11,18 +11,19 @@
 #include "Utility.hpp"
 #include "Sphere.hpp"
 
-DomeProjector::DomeProjector(Frustum *_frustum,
-                             int _grid_rings,
-                             int _grid_ring_elements,
+DomeProjector::DomeProjector(ProjectorFrustum *frustum,
+                             int grid_rings,
+                             int grid_ring_elements,
                              glm::vec3 const &position,
                              int dome_rings,
                              int dome_ring_elements)
-        : _frustum(_frustum)
-        , _grid_rings(_grid_rings)
-        , _grid_ring_elements(_grid_ring_elements)
+        : __frustum(frustum)
+        , _grid_rings(grid_rings)
+        , _grid_ring_elements(grid_ring_elements)
         , _position(position)
         , _dome_rings(dome_rings)
         , _dome_ring_elements(dome_ring_elements) {
+
 
     this->generateRadialGrid();
     this->generateDomeVertices();
@@ -30,26 +31,21 @@ DomeProjector::DomeProjector(Frustum *_frustum,
     glm::mat4 scale_mat(1.0f);
     scale_mat = glm::scale(scale_mat, glm::vec3(1.6f, 1.6f, 1.6f));
 
-    for(auto &vert: _dome_vertices) {
+    for (auto &vert: _dome_vertices) {
         vert = scale_mat * glm::vec4(vert, 1.0f);
     }
 
-//    for (int j = 0; j < this->_dome_vertices.size(); ++j) {
-//        glm::vec4 res = scale_mat * glm::vec4(this->_dome_vertices[j], 1.0f);
-//        this->_dome_vertices[j] = glm::vec3(res);
-//    }
-
-    // translate sample grid to projector position
-    // ignore the first element which is already in the frustums center
-    for (int i = 1; i < this->_sample_grid.size(); ++i) {
-        this->_sample_grid[i] = this->_sample_grid[i] + position;
+    __frustum->translateTo(position);
+    glm::mat4 translation = glm::translate(glm::mat4(1.0f), position);
+    for (auto &point: _sample_grid) {
+        point = glm::vec3(translation * glm::vec4(point, 1.0f));
     }
 
 }
 
 
 DomeProjector::~DomeProjector() {
-    delete this->_frustum;
+    delete __frustum;
 }
 
 std::vector<glm::vec3> DomeProjector::calculateTransformationMesh() {
@@ -76,7 +72,7 @@ std::vector<glm::vec3> DomeProjector::calculateTransformationMesh() {
     std::vector<glm::vec3> screen_points;
     std::vector<glm::vec3> texture_points;
     for (auto pair : map) {
-        std::cout << "dome: " << pair.first << " texture " << pair.second << std::endl;
+//        std::cout << "dome: " << pair.first << " texture " << pair.second << std::endl;
         texture_points.push_back(this->_dome_vertices[pair.first]);
         screen_points.push_back(this->_sample_grid[pair.second]);
     }
@@ -127,23 +123,21 @@ std::vector<glm::vec3> DomeProjector::calculateTransformationMesh() {
 
 void DomeProjector::calculateDomeHitpoints(Sphere *mirror, Sphere *dome) {
 
-    this->_first_hits.clear();
-    this->_second_hits.clear();
+    _first_hits.clear();
+    _second_hits.clear();
 
     // translate dome vertices to the domes position
-    for (int i = 0; i < this->_dome_vertices.size(); ++i) {
-        this->_dome_vertices[i] += dome->get_position();
+    for (int i = 0; i < _dome_vertices.size(); ++i) {
+        _dome_vertices[i] += dome->get_position();
         // todo move translation to scaling
     }
 
-    // raycast for each samplepoint
-    for (int i = 0; i < this->_sample_grid.size(); ++i) {
+    auto near_clipping_corners = __frustum->getNearCorners();
 
-        // todo ignore points outside of the frustum
-//        if (this->_sample_grid[i].y > _frustum->_near_clipping_corners[3].y &&
-//            this->_sample_grid[i].y < _frustum->_near_clipping_corners[0].y) {
-//            break;
-//        }
+    // raycast for each samplepoint
+    for (int i = 0; i < _sample_grid.size(); ++i) {
+
+        auto current = _sample_grid[i];
 
         // calculate initial ray direction
         glm::vec3 initial_direction = this->_sample_grid[i] - this->_position;
@@ -180,23 +174,35 @@ void DomeProjector::calculateDomeHitpoints(Sphere *mirror, Sphere *dome) {
 
 void DomeProjector::generateRadialGrid() {
 
-    // if there are elements in there kill'em
+    // if there are elements in there clear the vector
     if (!this->_sample_grid.empty()) {
         this->_sample_grid.clear();
     }
 
-    float step_size =
-            ((this->_frustum->_near_clipping_corners[0].x - this->_frustum->_near_clipping_corners[1].x) / 2) /
-            _grid_rings;
+    std::cout << "dome projector position" << std::endl;
+    std::cout << utility::vecstr(_position) << std::endl;
+    std::cout << std::endl;
+
+    std::cout << "near clipping corners" << std::endl;
+    auto near = __frustum->getNearCorners();
+    for (auto i : near) {
+        std::cout << utility::vecstr(i.second) << std::endl;
+    }
+    std::cout << std::endl;
+
+    float step_size = fabsf((near[ProjectorFrustum::TL].x - near[ProjectorFrustum::TR].x) / _grid_rings) / 2;
 
     // define center point
-    glm::vec3 center_point = glm::vec3(
-            (this->_frustum->_near_clipping_corners[1].x + this->_frustum->_near_clipping_corners[0].x) / 2,
-            (this->_frustum->_near_clipping_corners[1].y + this->_frustum->_near_clipping_corners[3].y) / 2,
-            this->_frustum->_near_clipping_corners[0].z);
+    float center_x = near[ProjectorFrustum::TR].x + near[ProjectorFrustum::TL].x;
+    float center_y = near[ProjectorFrustum::TR].y + near[ProjectorFrustum::BL].y;
+    float center_z = near[ProjectorFrustum::TL].z;
+    glm::vec3 center_point(center_x, center_y, center_z);
 
+//    debug.push_back(center_point);
 
+    std::cout << "component center point" << std::endl;
     std::cout << utility::vecstr(center_point) << std::endl;
+    std::cout << std::endl;
 
     float angle = 360.0f / _grid_ring_elements;
 
@@ -206,8 +212,14 @@ void DomeProjector::generateRadialGrid() {
             glm::quat euler_quat(glm::vec3(0.0, 0.0, glm::radians(angle * ring_point_idx)));
             glm::vec3 coord = euler_quat * glm::vec3(ring_idx * step_size, 0.0, 0.0);
 
-            // push back the rotated point at the near clipping plaes z position
-            this->_sample_grid.emplace_back(glm::vec3(coord.x, coord.y, this->_frustum->_near_clipping_corners[0].z));
+            float bottom_y = near[ProjectorFrustum::BR].y;
+            float top_y = near[ProjectorFrustum::TL].y;
+
+            if (coord.y < top_y && coord.y > bottom_y) {
+                // push back the rotated point at the near clipping planes z position
+                this->_sample_grid.emplace_back(glm::vec3(coord.x, coord.y, near[ProjectorFrustum::TL].z));
+            }
+
         }
     }
 

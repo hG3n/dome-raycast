@@ -40,7 +40,7 @@ public:
      * @param _grid_rings
      * @param _grid_ring_elements
      */
-    DomeProjector(Frustum *_frustum, int _grid_rings, int _grid_ring_elements,
+    DomeProjector(ProjectorFrustum *_frustum, int _grid_rings, int _grid_ring_elements,
                   glm::vec3 const &position, int dome_rings, int dome_ring_elements);
 
     /**
@@ -69,8 +69,11 @@ public:
     std::vector<glm::vec3> const &get_screen_points() const;
     std::vector<glm::vec3> const &get_texture_coords() const;
 
+    std::vector<glm::vec3> debug;
+
     // ostream
     friend std::ostream &operator<<(std::ostream &os, const DomeProjector &projector);
+    ProjectorFrustum *__frustum;
 
 private:
 
@@ -86,8 +89,7 @@ private:
     void generateDomeVertices();
 
     // members
-    Frustum *_frustum;
-    ProjectorFrustum __frustum;
+//    Frustum *_frustum;
 
     glm::vec3 _position;
 
