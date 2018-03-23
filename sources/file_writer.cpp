@@ -22,6 +22,7 @@ void FileWriter::setPath(Path const &path) {
 
 
 void FileWriter::writeVec3List(std::vector<glm::vec3> const &point_list, std::string const &file) {
+    // todo fix this
     std::vector<glm::vec3> list_cpy(point_list);
 
     std::stringstream oss;
