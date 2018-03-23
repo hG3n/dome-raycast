@@ -10,17 +10,17 @@
             0.0,
             0.0
         ],
-        "fov": 70.0,
+        "fov": 20.0,
         "screen": {
             "w": 1920,
             "h": 1080
         },
         "grid": {
-            "num_rings": 576,
-            "num_ring_elements": 288
+            "num_rings": 64,
+            "num_ring_elements": 64
         },
         "dome": {
-            "num_rings": 32,
+            "num_rings": 16,
             "num_ring_elements": 64
         }
     },
