@@ -62,6 +62,13 @@ public:
      */
     std::map<Corner, glm::vec3> const& getFarCorners() const;
 
+
+    /**
+     * returns frustum eye ray
+     * @return
+     */
+    glm::vec3 const& getEye() const;
+
 private:
 
     float _aspect_ratio;
