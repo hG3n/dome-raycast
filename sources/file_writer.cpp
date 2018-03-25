@@ -30,13 +30,18 @@ void FileWriter::writeVec3List(std::vector<glm::vec3> const &point_list, std::st
         oss << point.x << " " << point.y << " " << point.z << std::endl;
     }
 
+    // add filename
     _path.push_s(file);
+
+    // stream to file
     std::ofstream out_stream;
     out_stream.open(_path.str());
     out_stream << oss.str();
     out_stream.close();
 
-    std::cout << "Successfully saved '" << file << "' to '" << _path.str() << "'." << std::endl;
+    // remove the filename again
+    _path.pop();
 
+    std::cout << "Successfully saved '" << file << "' to '" << _path.str() << "'." << std::endl;
 }
 
