@@ -30,9 +30,7 @@ typedef FileWriter writer;
 // gl globals
 GLFWwindow *window;
 DomeProjector *dp;
-//Frustum *frustum;
 ProjectorFrustum *frustum;
-Screen *screen;
 Sphere *mirror;
 Sphere *dome;
 
@@ -234,15 +232,15 @@ int initializeGLContext(json11::Json const &application_config) {
 void cleanupGL() {
 
     // Cleanup VBO
-    for (int i = 0; i < vertex_buffer_ids.size(); ++i) {
+    for (unsigned int i = 0; i < vertex_buffer_ids.size(); ++i) {
         glDeleteBuffers(1, &vertex_buffer_ids[i]);
     }
 
-    for (int i = 0; i < vertex_array_ids.size(); ++i) {
+    for (unsigned int i = 0; i < vertex_array_ids.size(); ++i) {
         glDeleteVertexArrays(1, &vertex_array_ids[i]);
     }
 
-    for (int i = 0; i < shader_program_ids.size(); ++i) {
+    for (unsigned int i = 0; i < shader_program_ids.size(); ++i) {
         glDeleteProgram(shader_program_ids[i]);
     }
 
@@ -295,14 +293,14 @@ void runModelCalculations() {
 
     std::cout << "near clipping corners" << std::endl;
     near_clipping_corners.clear();
-    for(auto c : dp->__frustum->getNearCorners()) {
+    for (auto c : dp->getFrustum()->getNearCorners()) {
         near_clipping_corners.push_back(c.second);
         std::cout << utility::vecstr(c.second) << std::endl;
     }
 
     std::cout << "far clipping corners" << std::endl;
     far_clipping_corners.clear();
-    for(auto c : dp->__frustum->getFarCorners()) {
+    for (auto c : dp->getFrustum()->getFarCorners()) {
         far_clipping_corners.push_back(c.second);
         std::cout << utility::vecstr(c.second) << std::endl;
     }
@@ -353,7 +351,10 @@ drawVertexArray(GLuint matrix_id, GLuint vertex_buffer_id, glm::mat4 mvp, int nu
             (void *) 0          // array buffer offset
     );
 
-    glDrawArrays(GL_TRIANGLES, 0, num_vertices); // 3 indices starting at 0 -> 1 triangle
+    glPointSize(4.0);
+
+//    glDrawArrays(GL_TRIANGLES, 0, num_vertices); // 3 indices starting at 0 -> 1 triangle
+    glDrawArrays(GL_POINTS, 0, num_vertices); // 3 indices starting at 0 -> 1 triangle
 
     glDisableVertexAttribArray(0);
 }
@@ -472,16 +473,10 @@ void render(glm::mat4 mvp) {
             drawVertexArray(matrix_id, vertex_array_ids[0], current_mvp, 2 * 3, color_map["grey"]);
         }
 
-        for (auto element: screen_points) {
+        for (auto element: texture_coords) {
             current_mvp = glm::translate(mvp, element);
             current_mvp = glm::scale(current_mvp, glm::vec3(0.01, 0.01, 0.01));
             drawVertexArray(matrix_id, vertex_array_ids[0], current_mvp, 2 * 3, color_map["grey"]);
-        }
-
-        for (auto element : dp->debug) {
-            current_mvp = glm::translate(mvp, element);
-            current_mvp = glm::scale(current_mvp, glm::vec3(0.01, 0.01, 0.01));
-            drawVertexArray(matrix_id, vertex_array_ids[0], current_mvp, 2 * 3, color_map["blue"]);
         }
 
         // Swap buffers
@@ -506,45 +501,92 @@ void setupBuffers() {
     GLuint colorbuffer_blue;
     glGenBuffers(1, &colorbuffer_blue);
     glBindBuffer(GL_ARRAY_BUFFER, colorbuffer_blue);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertex_buffer_data::quat_blue), vertex_buffer_data::quat_blue, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertex_buffer_data::point_blue), vertex_buffer_data::point_blue,
+                 GL_STATIC_DRAW);
     color_map["blue"] = colorbuffer_blue;
 
     GLuint colorbuffer_green;
     glGenBuffers(1, &colorbuffer_green);
     glBindBuffer(GL_ARRAY_BUFFER, colorbuffer_green);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertex_buffer_data::quat_green), vertex_buffer_data::quat_green,
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertex_buffer_data::point_green), vertex_buffer_data::point_green,
                  GL_STATIC_DRAW);
     color_map["green"] = colorbuffer_green;
 
     GLuint colorbuffer_red;
     glGenBuffers(1, &colorbuffer_red);
     glBindBuffer(GL_ARRAY_BUFFER, colorbuffer_red);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertex_buffer_data::quat_red), vertex_buffer_data::quat_red, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertex_buffer_data::point_red), vertex_buffer_data::point_red, GL_STATIC_DRAW);
     color_map["red"] = colorbuffer_red;
 
     GLuint colorbuffer_yellow;
     glGenBuffers(1, &colorbuffer_yellow);
     glBindBuffer(GL_ARRAY_BUFFER, colorbuffer_yellow);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertex_buffer_data::quat_yellow), vertex_buffer_data::quat_yellow,
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertex_buffer_data::point_yellow), vertex_buffer_data::point_yellow,
                  GL_STATIC_DRAW);
     color_map["yellow"] = colorbuffer_yellow;
 
     GLuint colorbuffer_white;
     glGenBuffers(1, &colorbuffer_white);
     glBindBuffer(GL_ARRAY_BUFFER, colorbuffer_white);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertex_buffer_data::quat_white), vertex_buffer_data::quat_white,
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertex_buffer_data::point_white), vertex_buffer_data::point_white,
                  GL_STATIC_DRAW);
     color_map["white"] = colorbuffer_white;
 
     GLuint colorbuffer_grey;
     glGenBuffers(1, &colorbuffer_grey);
     glBindBuffer(GL_ARRAY_BUFFER, colorbuffer_grey);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertex_buffer_data::quat_grey), vertex_buffer_data::quat_grey,
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertex_buffer_data::point_grey), vertex_buffer_data::point_grey,
                  GL_STATIC_DRAW);
     color_map["grey"] = colorbuffer_grey;
 
 }
 
+/**
+ * setup buffers
+ */
+//void setupBuffers() {
+//
+//    GLuint colorbuffer_blue;
+//    glGenBuffers(1, &colorbuffer_blue);
+//    glBindBuffer(GL_ARRAY_BUFFER, colorbuffer_blue);
+//    glBufferData(GL_ARRAY_BUFFER, sizeof(vertex_buffer_data::quat_blue), vertex_buffer_data::quat_blue, GL_STATIC_DRAW);
+//    color_map["blue"] = colorbuffer_blue;
+//
+//    GLuint colorbuffer_green;
+//    glGenBuffers(1, &colorbuffer_green);
+//    glBindBuffer(GL_ARRAY_BUFFER, colorbuffer_green);
+//    glBufferData(GL_ARRAY_BUFFER, sizeof(vertex_buffer_data::quat_green), vertex_buffer_data::quat_green,
+//                 GL_STATIC_DRAW);
+//    color_map["green"] = colorbuffer_green;
+//
+//    GLuint colorbuffer_red;
+//    glGenBuffers(1, &colorbuffer_red);
+//    glBindBuffer(GL_ARRAY_BUFFER, colorbuffer_red);
+//    glBufferData(GL_ARRAY_BUFFER, sizeof(vertex_buffer_data::quat_red), vertex_buffer_data::quat_red, GL_STATIC_DRAW);
+//    color_map["red"] = colorbuffer_red;
+//
+//    GLuint colorbuffer_yellow;
+//    glGenBuffers(1, &colorbuffer_yellow);
+//    glBindBuffer(GL_ARRAY_BUFFER, colorbuffer_yellow);
+//    glBufferData(GL_ARRAY_BUFFER, sizeof(vertex_buffer_data::quat_yellow), vertex_buffer_data::quat_yellow,
+//                 GL_STATIC_DRAW);
+//    color_map["yellow"] = colorbuffer_yellow;
+//
+//    GLuint colorbuffer_white;
+//    glGenBuffers(1, &colorbuffer_white);
+//    glBindBuffer(GL_ARRAY_BUFFER, colorbuffer_white);
+//    glBufferData(GL_ARRAY_BUFFER, sizeof(vertex_buffer_data::quat_white), vertex_buffer_data::quat_white,
+//                 GL_STATIC_DRAW);
+//    color_map["white"] = colorbuffer_white;
+//
+//    GLuint colorbuffer_grey;
+//    glGenBuffers(1, &colorbuffer_grey);
+//    glBindBuffer(GL_ARRAY_BUFFER, colorbuffer_grey);
+//    glBufferData(GL_ARRAY_BUFFER, sizeof(vertex_buffer_data::quat_grey), vertex_buffer_data::quat_grey,
+//                 GL_STATIC_DRAW);
+//    color_map["grey"] = colorbuffer_grey;
+//
+//}
 
 /**
  * main function
@@ -563,7 +605,7 @@ int main() {
     buildModel();
     runModelCalculations();
 
-    output_path = Path({"..", "..", "glwarp-nocapture"});
+    output_path = Path(std::vector<std::string>{"..", "..", "glwarp-nocapture"});
     file_writer.setPath(output_path);
 
     bool mouse_enabled = application_config["options"]["mouse"].bool_value();
@@ -577,7 +619,8 @@ int main() {
     vertex_array_ids.push_back(vertex_array_id);
 
     // create buffers
-    vertex_buffer_ids.push_back(createVertexBuffer(vertex_buffer_data::quad));
+    vertex_buffer_ids.push_back(createVertexBuffer(vertex_buffer_data::point));
+//    vertex_buffer_ids.push_back(createVertexBuffer(vertex_buffer_data::quad));
     setupBuffers();
 
     // load shaders
