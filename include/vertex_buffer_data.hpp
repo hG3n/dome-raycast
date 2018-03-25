@@ -10,7 +10,40 @@
 
 namespace vertex_buffer_data {
 
-    // quad defintion
+    /// point defintion
+    /// ===============
+
+    static const std::vector<GLfloat> point {
+            0.0f,0.0f,0.0f
+    };
+
+    static const GLfloat point_blue[]{
+            0.0f, 0.0f, 1.0f,
+    };
+
+    static const GLfloat point_green[]{
+            0.0f, 1.0f, 0.0f,
+    };
+
+    static const GLfloat point_red[]{
+            1.0f, 0.0f, 0.0f,
+    };
+
+    static const GLfloat point_yellow[]{
+            1.0f, 1.0f, 0.0f,
+    };
+
+    static const GLfloat point_white[]{
+            1.0f, 1.0f, 1.0f,
+    };
+
+    static const GLfloat point_grey[]{
+            0.5f, 0.5f, 0.5f,
+    };
+
+
+    /// quad definition
+    /// ===============
 
     static const std::vector<GLfloat> quad{
             -1.0f, -1.0f, 0.0f,
