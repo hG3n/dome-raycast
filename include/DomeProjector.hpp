@@ -17,18 +17,6 @@
 #include "Frustum.hpp"
 #include "Sphere.hpp"
 
-
-struct Screen {
-
-    Screen(unsigned int width, unsigned int height)
-            : width(width)
-            , height(height) {}
-
-    unsigned int width;
-    unsigned int height;
-};
-
-
 class DomeProjector {
 
 public:
@@ -61,19 +49,56 @@ public:
      */
     void calculateDomeHitpoints(Sphere *mirror, Sphere *dome);
 
-    // getter
+
+    /**
+     * Returns the projectors frustum
+     * @return
+     */
+    ProjectorFrustum* getFrustum() const;
+
+    /**
+     * Returns a std::vec containing the radial sample grid.
+     * @return
+     */
     std::vector<glm::vec3> const &get_sample_grid() const;
+
+    /**
+     * Returns a std::vector containing all first hitpoints supposed to be on the mirrors surface.
+     * @return
+     */
     std::vector<glm::vec3> const &get_first_hits() const;
+
+    /**
+     * Returns a std::vector containing all second hitpoints supposed to be within the dome.
+     * @return
+     */
     std::vector<glm::vec3> const &get_second_hits() const;
+
+    /**
+     * Returns a std::vector containing the vertices for a half sphere.
+     * @return
+     */
     std::vector<glm::vec3> const &get_dome_vertices() const;
+
+    /**
+     * Returns a std::vector containing vertices of the final warping mesh
+     * @return
+     */
     std::vector<glm::vec3> const &get_screen_points() const;
+
+    /**
+     * Returns a std::vector containing vertices of the final warping mesh
+     * @return
+     */
     std::vector<glm::vec3> const &get_texture_coords() const;
 
-    std::vector<glm::vec3> debug;
-
-    // ostream
+    /**
+     * ostream
+     * @param os
+     * @param projector
+     * @return
+     */
     friend std::ostream &operator<<(std::ostream &os, const DomeProjector &projector);
-    ProjectorFrustum *__frustum;
 
 private:
 
@@ -89,7 +114,7 @@ private:
     void generateDomeVertices();
 
     // members
-//    Frustum *_frustum;
+    ProjectorFrustum *_frustum;
 
     glm::vec3 _position;
 

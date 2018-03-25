@@ -1,7 +1,3 @@
-//
-// Created by Hagen Hiller on 09/01/18.
-//
-
 #include <glm/gtc/quaternion.hpp>
 #include <string>
 #include <fstream>
@@ -17,7 +13,7 @@ DomeProjector::DomeProjector(ProjectorFrustum *frustum,
                              glm::vec3 const &position,
                              int dome_rings,
                              int dome_ring_elements)
-        : __frustum(frustum)
+        : _frustum(frustum)
         , _grid_rings(grid_rings)
         , _grid_ring_elements(grid_ring_elements)
         , _position(position)
@@ -35,7 +31,8 @@ DomeProjector::DomeProjector(ProjectorFrustum *frustum,
         vert = scale_mat * glm::vec4(vert, 1.0f);
     }
 
-    __frustum->translateTo(position);
+    // translate frustum alongside
+    _frustum->translateTo(position);
     glm::mat4 translation = glm::translate(glm::mat4(1.0f), position);
     for (auto &point: _sample_grid) {
         point = glm::vec3(translation * glm::vec4(point, 1.0f));
@@ -45,9 +42,12 @@ DomeProjector::DomeProjector(ProjectorFrustum *frustum,
 
 
 DomeProjector::~DomeProjector() {
-    delete __frustum;
+    delete _frustum;
 }
 
+/*
+ * methods
+ */
 std::vector<glm::vec3> DomeProjector::calculateTransformationMesh() {
 
     // create green list here
@@ -72,7 +72,6 @@ std::vector<glm::vec3> DomeProjector::calculateTransformationMesh() {
     std::vector<glm::vec3> screen_points;
     std::vector<glm::vec3> texture_points;
     for (auto pair : map) {
-//        std::cout << "dome: " << pair.first << " texture " << pair.second << std::endl;
         texture_points.push_back(this->_dome_vertices[pair.first]);
         screen_points.push_back(this->_sample_grid[pair.second]);
     }
@@ -127,12 +126,12 @@ void DomeProjector::calculateDomeHitpoints(Sphere *mirror, Sphere *dome) {
     _second_hits.clear();
 
     // translate dome vertices to the domes position
-    for (int i = 0; i < _dome_vertices.size(); ++i) {
-        _dome_vertices[i] += dome->get_position();
-        // todo move translation to scaling
+    glm::mat4 dome_translation = glm::translate(glm::mat4(1.0f), dome->get_position());
+    for(auto &vertex : _dome_vertices) {
+        vertex = glm::vec3(dome_translation * glm::vec4(vertex, 1.0f));
     }
 
-    auto near_clipping_corners = __frustum->getNearCorners();
+    auto near_clipping_corners = _frustum->getNearCorners();
 
     // raycast for each samplepoint
     for (int i = 0; i < _sample_grid.size(); ++i) {
@@ -179,16 +178,7 @@ void DomeProjector::generateRadialGrid() {
         this->_sample_grid.clear();
     }
 
-    std::cout << "dome projector position" << std::endl;
-    std::cout << utility::vecstr(_position) << std::endl;
-    std::cout << std::endl;
-
-    std::cout << "near clipping corners" << std::endl;
-    auto near = __frustum->getNearCorners();
-    for (auto i : near) {
-        std::cout << utility::vecstr(i.second) << std::endl;
-    }
-    std::cout << std::endl;
+    auto near = _frustum->getNearCorners();
 
     float step_size = fabsf((near[ProjectorFrustum::TL].x - near[ProjectorFrustum::TR].x) / _grid_rings) / 2;
 
@@ -198,23 +188,16 @@ void DomeProjector::generateRadialGrid() {
     float center_z = near[ProjectorFrustum::TL].z;
     glm::vec3 center_point(center_x, center_y, center_z);
 
-//    debug.push_back(center_point);
-
-    std::cout << "component center point" << std::endl;
-    std::cout << utility::vecstr(center_point) << std::endl;
-    std::cout << std::endl;
-
-    float angle = 360.0f / _grid_ring_elements;
+    float step_angle = 360.0f / _grid_ring_elements;
 
     this->_sample_grid.push_back(center_point);
     for (unsigned int ring_idx = 1; ring_idx < _grid_rings + 1; ++ring_idx) {
         for (unsigned int ring_point_idx = 0; ring_point_idx < _grid_ring_elements; ++ring_point_idx) {
-            glm::quat euler_quat(glm::vec3(0.0, 0.0, glm::radians(angle * ring_point_idx)));
+            glm::quat euler_quat(glm::vec3(0.0, 0.0, glm::radians(step_angle * ring_point_idx)));
             glm::vec3 coord = euler_quat * glm::vec3(ring_idx * step_size, 0.0, 0.0);
 
             float bottom_y = near[ProjectorFrustum::BR].y;
             float top_y = near[ProjectorFrustum::TL].y;
-
             if (coord.y < top_y && coord.y > bottom_y) {
                 // push back the rotated point at the near clipping planes z position
                 this->_sample_grid.emplace_back(glm::vec3(coord.x, coord.y, near[ProjectorFrustum::TL].z));
@@ -251,59 +234,39 @@ void DomeProjector::generateDomeVertices() {
     this->_dome_vertices = vertices;
 }
 
-/**
- * Returns a std::vec containing the radial sample grid.
- * @return
+/*
+ * Getter
  */
+ProjectorFrustum *DomeProjector::getFrustum() const {
+    return _frustum;
+}
+
 std::vector<glm::vec3> const &DomeProjector::get_sample_grid() const {
     return this->_sample_grid;
 }
 
-/**
- * Returns a std::vector containing all first hitpoints supposed to be on the mirrors surface.
- * @return
- */
 std::vector<glm::vec3> const &DomeProjector::get_first_hits() const {
     return this->_first_hits;
 }
 
-/**
- * Returns a std::vector containing all second hitpoints supposed to be within the dome.
- * @return
- */
 std::vector<glm::vec3> const &DomeProjector::get_second_hits() const {
     return this->_second_hits;
 }
 
-/**
- * Returns a std::vector containing the vertices for a half sphere.
- * @return
- */
 std::vector<glm::vec3> const &DomeProjector::get_dome_vertices() const {
     return this->_dome_vertices;
 }
 
-/**
- * Returns a std::vector containing vertices of the final warping mesh
- * @return
- */
 std::vector<glm::vec3> const &DomeProjector::get_screen_points() const {
     return this->_screen_points;
 }
 
-/**
- * Returns a std::vector containing vertices of the final warping mesh
- * @return
- */
 std::vector<glm::vec3> const &DomeProjector::get_texture_coords() const {
     return this->_texture_coords;
 }
 
-/**
+/*
  * ostream
- * @param os
- * @param projector
- * @return
  */
 std::ostream &operator<<(std::ostream &os, const DomeProjector &projector) {
     os << "Dome Projector:" << "\n"
